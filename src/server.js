@@ -16,7 +16,7 @@ const authRoutes = require('./routes/auth');
 const portfolioRoutes = require('./routes/portfolio');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
-const { getDb, closeDb } = require('./services/database');
+const { openDb, initSchema, closeDb } = require('./services/database');
 
 const app = express();
 
@@ -60,54 +60,57 @@ app.get('/api/status', (_req, res) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-getDb();
-startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
+(async () => {
+  await openDb();
+  await initSchema();
+  startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
 
-const sslKey = process.env.SSL_KEY_PATH;
-const sslCert = process.env.SSL_CERT_PATH;
+  const sslKey = process.env.SSL_KEY_PATH;
+  const sslCert = process.env.SSL_CERT_PATH;
 
-let server;
+  let server;
 
-if (sslKey && sslCert && fs.existsSync(sslKey) && fs.existsSync(sslCert)) {
-  const credentials = { key: fs.readFileSync(sslKey), cert: fs.readFileSync(sslCert) };
-  server = https.createServer(credentials, app);
-  server.listen(config.port, config.host, () => {
-    logger.info(`CHESSINVEST running at https://${config.host}:${config.port}`);
-  });
-} else {
-  server = http.createServer(app);
-  server.listen(config.port, config.host, () => {
-    logger.info(`CHESSINVEST running at http://${config.host}:${config.port}`);
-  });
-  if (sslKey || sslCert) {
-    logger.warn('SSL configured but certificate files not found — falling back to HTTP');
+  if (sslKey && sslCert && fs.existsSync(sslKey) && fs.existsSync(sslCert)) {
+    const credentials = { key: fs.readFileSync(sslKey), cert: fs.readFileSync(sslCert) };
+    server = https.createServer(credentials, app);
+    server.listen(config.port, config.host, () => {
+      logger.info(`CHESSINVEST running at https://${config.host}:${config.port}`);
+    });
+  } else {
+    server = http.createServer(app);
+    server.listen(config.port, config.host, () => {
+      logger.info(`CHESSINVEST running at http://${config.host}:${config.port}`);
+    });
+    if (sslKey || sslCert) {
+      logger.warn('SSL configured but certificate files not found — falling back to HTTP');
+    }
   }
-}
 
-if (!config.openRouter.apiKey && !config.anthropic.apiKey) {
-  logger.warn('No API key configured — AI features will use mock data');
-}
+  if (!config.openRouter.apiKey && !config.anthropic.apiKey) {
+    logger.warn('No API key configured — AI features will use mock data');
+  }
 
-function gracefulShutdown(signal) {
-  logger.info(`${signal} received — shutting down gracefully`);
-  server.close(() => {
-    stopAll();
-    closeDb();
-    logger.info('Server shut down');
-    process.exit(0);
+  function gracefulShutdown(signal) {
+    logger.info(`${signal} received — shutting down gracefully`);
+    server.close(() => {
+      stopAll();
+      closeDb();
+      logger.info('Server shut down');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      logger.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000).unref();
+  }
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('uncaughtException', (err) => {
+    logger.error(`Uncaught exception: ${err.message}`, { stack: err.stack });
+    gracefulShutdown('uncaughtException');
   });
-  setTimeout(() => {
-    logger.error('Forced shutdown after timeout');
-    process.exit(1);
-  }, 10000).unref();
-}
-
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('uncaughtException', (err) => {
-  logger.error(`Uncaught exception: ${err.message}`, { stack: err.stack });
-  gracefulShutdown('uncaughtException');
-});
-process.on('unhandledRejection', (reason) => {
-  logger.error(`Unhandled rejection: ${reason}`);
-});
+  process.on('unhandledRejection', (reason) => {
+    logger.error(`Unhandled rejection: ${reason}`);
+  });
+})();

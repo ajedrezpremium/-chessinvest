@@ -1,44 +1,74 @@
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const logger = require('./logger');
 
 const DB_PATH = path.resolve(__dirname, '../../data/chessinvest.db');
 
 let db;
 
-function getDb() {
-  if (!db) {
-    const fs = require('fs');
+function openDb() {
+  return new Promise((resolve, reject) => {
     const dir = path.dirname(DB_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initSchema();
-    logger.info(`Database initialized at ${DB_PATH}`);
-  }
-  return db;
+    db = new sqlite3.Database(DB_PATH, (err) => {
+      if (err) return reject(err);
+      db.run('PRAGMA journal_mode = WAL');
+      db.run('PRAGMA foreign_keys = ON');
+      logger.info(`Database initialized at ${DB_PATH}`);
+      resolve();
+    });
+  });
 }
 
-function initSchema() {
-  db.exec(`
+function run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) return reject(err);
+      resolve({ lastID: this.lastID, changes: this.changes });
+    });
+  });
+}
+
+function get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) return reject(err);
+      resolve(row);
+    });
+  });
+}
+
+function all(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows || []);
+    });
+  });
+}
+
+async function initSchema() {
+  await run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
-    );
-
+    )
+  `);
+  await run(`
     CREATE TABLE IF NOT EXISTS watchlist (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       ticker TEXT NOT NULL,
       added_at TEXT DEFAULT (datetime('now')),
       UNIQUE(user_id, ticker)
-    );
-
+    )
+  `);
+  await run(`
     CREATE TABLE IF NOT EXISTS portfolio (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -47,8 +77,9 @@ function initSchema() {
       avg_price REAL NOT NULL CHECK(avg_price > 0),
       added_at TEXT DEFAULT (datetime('now')),
       UNIQUE(user_id, ticker)
-    );
-
+    )
+  `);
+  await run(`
     CREATE TABLE IF NOT EXISTS recommendation_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -60,21 +91,26 @@ function initSchema() {
       sector TEXT,
       price_at_recommendation TEXT,
       generated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
-    CREATE INDEX IF NOT EXISTS idx_portfolio_user ON portfolio(user_id);
-    CREATE INDEX IF NOT EXISTS idx_rec_history_user ON recommendation_history(user_id);
-    CREATE INDEX IF NOT EXISTS idx_rec_history_date ON recommendation_history(generated_at);
+    )
   `);
+  await run('CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id)');
+  await run('CREATE INDEX IF NOT EXISTS idx_portfolio_user ON portfolio(user_id)');
+  await run('CREATE INDEX IF NOT EXISTS idx_rec_history_user ON recommendation_history(user_id)');
+  await run('CREATE INDEX IF NOT EXISTS idx_rec_history_date ON recommendation_history(generated_at)');
 }
 
 function closeDb() {
-  if (db) {
-    db.close();
-    db = null;
-    logger.info('Database closed');
-  }
+  return new Promise((resolve) => {
+    if (db) {
+      db.close(() => {
+        db = null;
+        logger.info('Database closed');
+        resolve();
+      });
+    } else {
+      resolve();
+    }
+  });
 }
 
-module.exports = { getDb, closeDb };
+module.exports = { openDb, run, get, all, closeDb };
