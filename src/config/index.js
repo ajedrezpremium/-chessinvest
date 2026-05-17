@@ -4,7 +4,7 @@ const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const config = {
-  host: process.env.HOST || '127.0.0.1',
+  host: process.env.HOST || '0.0.0.0',
   port: Number(process.env.PORT || 3000),
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY || '',
