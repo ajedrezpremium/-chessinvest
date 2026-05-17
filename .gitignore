@@ -1,0 +1,8 @@
+node_modules/
+.env
+*.log
+*.err
+dist/
+.DS_Store
+data/
+server.old.js

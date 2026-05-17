@@ -1,0 +1,7 @@
+node_modules
+.git
+.gitignore
+*.log
+data/
+tests/
+server.old.js
