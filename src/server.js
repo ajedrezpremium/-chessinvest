@@ -60,13 +60,19 @@ app.get('/api/status', (_req, res) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-(async () => {
-  await openDb();
-  await initSchema();
-  startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
+const sslKey = process.env.SSL_KEY_PATH;
+const sslCert = process.env.SSL_CERT_PATH;
 
-  const sslKey = process.env.SSL_KEY_PATH;
-  const sslCert = process.env.SSL_CERT_PATH;
+async function startServer() {
+  try {
+    await openDb();
+    await initSchema();
+    logger.info('Database ready');
+  } catch (err) {
+    logger.error(`Database init failed: ${err.message}. Continuing without persistence.`);
+  }
+
+  startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
 
   let server;
 
@@ -113,4 +119,9 @@ app.use(errorHandler);
   process.on('unhandledRejection', (reason) => {
     logger.error(`Unhandled rejection: ${reason}`);
   });
-})();
+}
+
+startServer().catch((err) => {
+  logger.error(`Fatal startup error: ${err.message}`);
+  process.exit(1);
+});
