@@ -742,19 +742,16 @@ function renderCriteria(){
 function switchTab(id){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById('sec-'+id).classList.add('active');
+  const tabEl=document.querySelector(`.tab[onclick*="'${id}'"]`);
+  if(tabEl)tabEl.classList.add('active');
+  const sec=document.getElementById('sec-'+id);
+  if(sec)sec.classList.add('active');
   history.pushState({tab:id},'', '#'+id);
 }
 
 window.addEventListener('popstate',function(e){
   const tab=e.state?.tab||location.hash.replace('#','')||'markets';
-  document.querySelectorAll('.tab').forEach(t=>{
-    t.classList.toggle('active',t.textContent.toLowerCase().includes(tab==='analyzer'?'laboratorio':tab==='calendar'?'calendario':tab==='portfolio'?'cartera':tab==='recomendaciones'?'recomendaciones':tab==='alertas'?'alertas':tab==='resumen'?'resumen':tab==='algoritmo'?'algoritmo':'mercados'));
-  });
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  const sec=document.getElementById('sec-'+tab);
-  if(sec)sec.classList.add('active');
+  switchTab(tab);
 });
 
 window.addEventListener('load',function(){
@@ -767,11 +764,8 @@ window.addEventListener('load',function(){
       document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
       document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
       sec.classList.add('active');
-      const tabs=document.querySelectorAll('.tab');
-      tabs.forEach(t=>{
-        const onclick=t.getAttribute('onclick')||'';
-        if(onclick.includes("'"+tabId+"'"))t.classList.add('active');
-      });
+      const tabEl=document.querySelector(`.tab[onclick*="'${tabId}'"]`);
+      if(tabEl)tabEl.classList.add('active');
     }
   }
 });
