@@ -42,6 +42,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/analyzer', analyzerRoutes);
 
+// Test endpoint
+app.get('/api/test', (_req, res) => {
+  res.json({ ok: true, routes: ['/api/markets', '/api/auth', '/api/portfolio', '/api/analyzer'] });
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
