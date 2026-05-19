@@ -100,6 +100,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .footer-links a{color:var(--accent);text-decoration:none}
 .footer-links a:hover{text-decoration:underline}
 .footer-copy{font-size:10px;color:var(--muted);margin-top:12px;opacity:0.6}
+.cal-tab.active{color:var(--accent)!important;border-bottom-color:var(--accent)!important}
+.cal-content{min-height:200px}
+.cal-event{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.cal-event:last-child{border:none}
+.cal-date{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);min-width:70px;text-align:center}
+.cal-date .day{font-size:18px;font-weight:700;color:var(--text);display:block}
+.cal-date .month{font-size:10px;text-transform:uppercase}
+.cal-impact{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cal-impact.high{background:var(--red);box-shadow:0 0 6px var(--red)}
+.cal-impact.medium{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.cal-impact.low{background:var(--green);box-shadow:0 0 6px var(--green)}
+.cal-info{flex:1}
+.cal-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.cal-desc{font-size:11px;color:var(--muted)}
+.cal-consensus{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);min-width:80px;text-align:right}
 .news-ticker{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 0;overflow:hidden;position:relative;margin-top:20px}
 .news-ticker-label{position:absolute;left:0;top:0;bottom:0;background:var(--accent);color:#000;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:10px 14px;z-index:2;display:flex;align-items:center;gap:6px}
 .news-ticker-label::after{content:'';position:absolute;right:-20px;top:0;bottom:0;width:20px;background:linear-gradient(to right,var(--accent),transparent)}
@@ -179,7 +194,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="tab" onclick="switchTab('resumen')">Resumen Diario</div>
   <div class="tab" onclick="switchTab('algoritmo')">Algoritmo</div>
   <div class="tab" onclick="switchTab('portfolio')">Mi Cartera</div>
-  <div class="tab" onclick="switchTab('analyzer')">Analizar Acción</div>
+  <div class="tab" onclick="switchTab('analyzer')">El Laboratorio</div>
+  <div class="tab" onclick="switchTab('calendar')">Calendario</div>
 </div>
 
 <div class="main">
@@ -269,7 +285,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <!-- ANALIZAR ACCIÓN -->
 <div class="section" id="sec-analyzer">
-  <div class="section-title">Analizar Acción — ChessInvest IA</div>
+  <div class="section-title">El Laboratorio — ChessInvest IA</div>
   <div class="ai-panel">
     <div class="ai-header">
       <div>
@@ -290,6 +306,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         Introduce un ticker y pulsa Analizar para obtener un informe profesional completo
       </div>
     </div>
+  </div>
+</div>
+
+<!-- CALENDARIO -->
+<div class="section" id="sec-calendar">
+  <div class="section-title">Calendario de Eventos</div>
+  <div class="ai-panel">
+    <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+      <div class="cal-tab active" id="cal-tab-economy" onclick="switchCalTab('economy')" style="padding:10px 20px;font-size:13px;font-weight:500;color:var(--accent);cursor:pointer;border-bottom:2px solid var(--accent)">📊 Economía</div>
+      <div class="cal-tab" id="cal-tab-earnings" onclick="switchCalTab('earnings')" style="padding:10px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent">📈 Resultados</div>
+    </div>
+    <div id="cal-economy" class="cal-content"></div>
+    <div id="cal-earnings" class="cal-content" style="display:none"></div>
   </div>
 </div>
 
@@ -993,6 +1022,104 @@ function renderNewsTicker(){
 }
 
 renderNewsTicker();
+
+function switchCalTab(tab){
+  document.getElementById('cal-tab-economy').className='cal-tab'+(tab==='economy'?' active':'');
+  document.getElementById('cal-tab-earnings').className='cal-tab'+(tab==='earnings'?' active':'');
+  document.getElementById('cal-economy').style.display=tab==='economy'?'block':'none';
+  document.getElementById('cal-earnings').style.display=tab==='earnings'?'block':'none';
+}
+
+function generateCalendar(){
+  const now=new Date();
+  const dayOfWeek=now.getDay();
+  const events=[];
+  const earnings=[];
+
+  const economicEvents=[
+    {day:1,title:'IPC Zona Euro',desc:'Índice de Precios al Consumo — dato clave para el BCE',impact:'high',consensus:'+0.3%'},
+    {day:1,title:'PMI Manufacturero EE.UU.',desc:'Índice de gestores de compras — termómetro de la economía',impact:'high',consensus:'51.2'},
+    {day:2,title:'Nóminas no agrícolas',desc:'Empleo EE.UU. — el dato más seguido del mes',impact:'high',consensus:'+180K'},
+    {day:2,title:'Tasa de desempleo EE.UU.',desc:'Porcentaje de desempleados — umbral clave 4.0%',impact:'high',consensus:'4.1%'},
+    {day:3,title:'Decisión de tipos Fed',desc:'Federal Reserve — posible recorte de 25pb',impact:'high',consensus:'4.50-4.75%'},
+    {day:3,title:'Rueda de prensa Powell',desc:'Presidente de la Fed — señales sobre política monetaria',impact:'high',consensus:'—'},
+    {day:4,title:'IPC EE.UU.',desc:'Inflación americana — dato clave para mercados',impact:'high',consensus:'+0.3%'},
+    {day:4,title:'Ventas minoristas',desc:'Consumo estadounidense — 70% del PIB',impact:'medium',consensus:'+0.4%'},
+    {day:5,title:'PIB Zona Euro',desc:'Crecimiento trimestral de la eurozona',impact:'medium',consensus:'+0.2%'},
+    {day:5,title:'Sentimiento consumidor Michigan',desc:'Confianza del consumidor americano',impact:'medium',consensus:'72.5'},
+    {day:6,title:'Producción industrial',desc:'Actividad manufacturera global',impact:'low',consensus:'+0.2%'},
+    {day:6,title:'Pedidos de vivienda EE.UU.',desc:'Sector inmobiliario — indicador adelantado',impact:'low',consensus:'+1.5M'},
+  ];
+
+  const earningEvents=[
+    {day:1,ticker:'JPM',name:'JPMorgan Chase',sector:'Banca',estimate:'$4.20',time:'Antes de apertura'},
+    {day:1,ticker:'BAC',name:'Bank of America',sector:'Banca',estimate:'$0.82',time:'Antes de apertura'},
+    {day:2,ticker:'MSFT',name:'Microsoft',sector:'Tecnología',estimate:'$3.12',time:'Después de cierre'},
+    {day:2,ticker:'GOOGL',name:'Alphabet',sector:'Tecnología',estimate:'$2.05',time:'Después de cierre'},
+    {day:3,ticker:'AMZN',name:'Amazon',sector:'Consumo/Cloud',estimate:'$1.35',time:'Después de cierre'},
+    {day:3,ticker:'META',name:'Meta Platforms',sector:'Tecnología',estimate:'$6.25',time:'Después de cierre'},
+    {day:4,ticker:'AAPL',name:'Apple',sector:'Tecnología',estimate:'$2.35',time:'Después de cierre'},
+    {day:4,ticker:'NVDA',name:'NVIDIA',sector:'Semiconductores',estimate:'$0.85',time:'Después de cierre'},
+    {day:5,ticker:'TSLA',name:'Tesla',sector:'Automoción',estimate:'$0.75',time:'Después de cierre'},
+    {day:5,ticker:'SAN',name:'Banco Santander',sector:'Banca',estimate:'€0.28',time:'Antes de apertura'},
+    {day:6,ticker:'V',name:'Visa',sector:'Pagos',estimate:'$2.55',time:'Después de cierre'},
+    {day:6,ticker:'LLY',name:'Eli Lilly',sector:'Farmacéutica',estimate:'$3.80',time:'Antes de apertura'},
+  ];
+
+  for(let i=0;i<7;i++){
+    const d=new Date(now);
+    d.setDate(now.getDate()+i);
+    const dayNum=d.getDate();
+    const monthNames=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+    const monthStr=monthNames[d.getMonth()];
+
+    economicEvents.forEach(ev=>{
+      if(ev.day===i+1){
+        events.push({...ev,date:{day:dayNum,month:monthStr}});
+      }
+    });
+
+    earningEvents.forEach(ev=>{
+      if(ev.day===i+1){
+        earnings.push({...ev,date:{day:dayNum,month:monthStr}});
+      }
+    });
+  }
+
+  const ecoEl=document.getElementById('cal-economy');
+  if(ecoEl){
+    ecoEl.innerHTML=events.length===0?'<div style="text-align:center;padding:30px;color:var(--muted)">No hay eventos económicos esta semana</div>':
+      events.map(e=>`
+        <div class="cal-event">
+          <div class="cal-date"><span class="day">${e.date.day}</span><span class="month">${e.date.month}</span></div>
+          <div class="cal-impact ${e.impact}"></div>
+          <div class="cal-info">
+            <div class="cal-title">${e.title}</div>
+            <div class="cal-desc">${e.desc}</div>
+          </div>
+          <div class="cal-consensus">${e.consensus}</div>
+        </div>
+      `).join('');
+  }
+
+  const earnEl=document.getElementById('cal-earnings');
+  if(earnEl){
+    earnEl.innerHTML=earnings.length===0?'<div style="text-align:center;padding:30px;color:var(--muted)">No hay resultados esta semana</div>':
+      earnings.map(e=>`
+        <div class="cal-event">
+          <div class="cal-date"><span class="day">${e.date.day}</span><span class="month">${e.date.month}</span></div>
+          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);min-width:60px">${e.ticker}</div>
+          <div class="cal-info">
+            <div class="cal-title">${e.name}</div>
+            <div class="cal-desc">${e.sector} · ${e.time}</div>
+          </div>
+          <div class="cal-consensus">Est: ${e.estimate}</div>
+        </div>
+      `).join('');
+  }
+}
+
+generateCalendar();
 </script>
 
 <footer class="app-footer">
