@@ -459,7 +459,8 @@ Devuelve SOLO este JSON:
     renderRecomendaciones(parsed.acciones);
   }catch(e){
     btn.disabled=false;
-    out.innerHTML='<div style="color:var(--red);text-align:center;padding:20px;font-size:13px">Error al generar recomendaciones. Inténtalo de nuevo.</div>';
+    console.error('Recommendations error:', e);
+    out.innerHTML='<div style="color:var(--red);text-align:center;padding:20px;font-size:13px">Error: '+e.message+'</div>';
   }
 }
 
