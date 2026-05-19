@@ -14,6 +14,7 @@ const aiRoutes = require('./routes/ai');
 const marketRoutes = require('./routes/market');
 const authRoutes = require('./routes/auth');
 const portfolioRoutes = require('./routes/portfolio');
+const analyzerRoutes = require('./routes/analyzer');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb } = require('./services/database');
@@ -39,6 +40,7 @@ app.use('/api', aiRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/analyzer', analyzerRoutes);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });

@@ -116,6 +116,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .btn-danger:hover{background:#cc3333}
 .auth-btn{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
 .auth-btn:hover{color:var(--accent);border-color:var(--accent)}
+.floating-icon{position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#000;box-shadow:0 4px 20px rgba(0,212,255,0.4);cursor:pointer;transition:all 0.3s;z-index:999;text-decoration:none}
+.floating-icon:hover{transform:scale(1.1);box-shadow:0 6px 30px rgba(0,212,255,0.6)}
 </style>
 
 <div class="app">
@@ -150,6 +152,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="tab" onclick="switchTab('resumen')">Resumen Diario</div>
   <div class="tab" onclick="switchTab('algoritmo')">Algoritmo</div>
   <div class="tab" onclick="switchTab('portfolio')">Mi Cartera</div>
+  <div class="tab" onclick="switchTab('analyzer')">Analizar Acción</div>
 </div>
 
 <div class="main">
@@ -233,6 +236,32 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<!-- ANALIZAR ACCIÓN -->
+<div class="section" id="sec-analyzer">
+  <div class="section-title">Analizar Acción — ChessInvest IA</div>
+  <div class="ai-panel">
+    <div class="ai-header">
+      <div>
+        <div class="ai-tag">♔ CHESS INVEST IA</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Análisis profesional estilo WarrenAI con datos reales</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:end">
+      <div class="field" style="display:flex;flex-direction:column">
+        <label style="font-size:11px;color:var(--muted);margin-bottom:3px">Ticker</label>
+        <input type="text" id="analyzer-ticker" placeholder="Ej: SAN, AAPL, MSFT" style="padding:10px 14px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;width:180px;text-transform:uppercase;outline:none;font-family:'Space Mono',monospace" onkeydown="if(event.key==='Enter')analizarAccion()">
+      </div>
+      <button class="btn" id="btn-analyze" onclick="analizarAccion()">Analizar</button>
+    </div>
+    <div id="analyzer-output">
+      <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
+        <div style="font-size:48px;margin-bottom:12px;opacity:0.3">♔</div>
+        Introduce un ticker y pulsa Analizar para obtener un informe profesional completo
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MI CARTERA -->
 <div class="section" id="sec-portfolio">
   <div class="section-title">Mi Cartera</div>
@@ -272,6 +301,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 </div>
 </div>
+
+<a href="https://chessinvest.onrender.com" class="floating-icon" title="♔ CHESS INVEST">♔</a>
 
 <script>
 const CRITERIA = [
@@ -827,6 +858,64 @@ async function renderPortfolio(){
   renderWatchlist();
   renderPortfolioHoldings();
   renderRecHistory();
+}
+
+async function analizarAccion(){
+  const ticker=document.getElementById('analyzer-ticker').value.trim().toUpperCase();
+  if(!ticker)return;
+  const btn=document.getElementById('btn-analyze');
+  const out=document.getElementById('analyzer-output');
+  btn.disabled=true;
+  out.innerHTML='<div class="loading"><div class="spinner"></div>Analizando '+ticker+' con datos reales...</div>';
+  try{
+    const res=await fetch('/api/analyzer/analyze',{
+      method:'POST',
+      headers:apiHeaders(),
+      body:JSON.stringify({ticker})
+    });
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Analysis failed');
+    btn.disabled=false;
+    const d=data.data||{};
+    const priceStr=d.price?d.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+    const chgStr=d.change!==undefined?(d.change>=0?'+':'')+d.change.toFixed(2):'—';
+    const chgPctStr=d.changePercent!==undefined?(d.changePercent>=0?'+':'')+d.changePercent.toFixed(2)+'%':'—';
+    const dir=d.change>=0?'up':'down';
+    out.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <span style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--accent)">${data.ticker}</span>
+          <span style="font-size:14px;font-weight:600;margin-left:10px">${priceStr}</span>
+          <span style="font-size:13px;font-weight:600;color:${dir==='up'?'var(--green)':'var(--red)'};margin-left:8px">${chgStr} (${chgPctStr})</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Cap: ${d.marketCap?formatBigNum(d.marketCap):'—'} · Vol: ${d.volume?formatBigNum(d.volume):'—'}</div>
+      </div>
+      <div class="summary-text" style="font-size:13px;line-height:1.9">${formatAnalysis(data.analysis)}</div>
+    `;
+  }catch(e){
+    btn.disabled=false;
+    out.innerHTML='<div style="color:var(--red);text-align:center;padding:20px;font-size:13px">'+e.message+'</div>';
+  }
+}
+
+function formatAnalysis(text){
+  return text
+    .replace(/^### (.+)$/gm,'<div style="color:var(--accent);font-weight:600;font-size:14px;margin:18px 0 8px;font-family:\'Space Mono\',monospace">$1</div>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--text)">$1</strong>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>')
+    .replace(/<pro>(.+?)<\/pro>/g,'<span style="color:var(--amber);font-weight:600">$1</span>')
+    .replace(/\[Leer más\]\(([^)]+)\)/g,'<a href="$1" target="_blank" style="color:var(--accent);text-decoration:underline;font-size:11px">Leer más</a>')
+    .replace(/<em>(.+?)<\/em>/g,'<em style="color:var(--muted);font-size:11px">$1</em>');
+}
+
+function formatBigNum(n){
+  if(!n||isNaN(n))return'—';
+  if(n>=1e12)return(n/1e12).toFixed(1)+'T';
+  if(n>=1e9)return(n/1e9).toFixed(1)+'B';
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return(n/1e3).toFixed(1)+'K';
+  return n.toFixed(2);
 }
 
 async function callAnthropic(payload){
