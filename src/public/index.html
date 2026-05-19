@@ -83,6 +83,33 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .crit-num{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);min-width:22px}
 .crit-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dot-tech{background:var(--accent)}.dot-fund{background:var(--green)}.dot-macro{background:var(--purple)}.dot-risk{background:var(--amber)}
+.news-ticker{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 0;overflow:hidden;position:relative;margin-top:20px}
+.news-ticker-label{position:absolute;left:0;top:0;bottom:0;background:var(--accent);color:#000;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:10px 14px;z-index:2;display:flex;align-items:center;gap:6px}
+.news-ticker-label::after{content:'';position:absolute;right:-20px;top:0;bottom:0;width:20px;background:linear-gradient(to right,var(--accent),transparent)}
+.news-ticker-track{display:flex;animation:tickerScroll 120s linear infinite;padding-left:140px}
+.news-ticker-track:hover{animation-play-state:paused}
+.news-item{white-space:nowrap;padding:0 30px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.news-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.news-item .dot.up{background:var(--green)}.news-item .dot.down{background:var(--red)}.news-item .dot.neutral{background:var(--amber)}
+.news-item strong{color:var(--text);font-weight:600}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.app-footer{background:var(--bg2);border-top:1px solid var(--border);padding:20px;margin-top:40px;text-align:center}
+.footer-disclaimer{font-size:11px;color:var(--muted);line-height:1.7;max-width:800px;margin:0 auto 12px}
+.footer-disclaimer strong{color:var(--amber)}
+.footer-links{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;font-size:11px}
+.footer-links a{color:var(--accent);text-decoration:none}
+.footer-links a:hover{text-decoration:underline}
+.footer-copy{font-size:10px;color:var(--muted);margin-top:12px;opacity:0.6}
+.news-ticker{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 0;overflow:hidden;position:relative;margin-top:20px}
+.news-ticker-label{position:absolute;left:0;top:0;bottom:0;background:var(--accent);color:#000;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:10px 14px;z-index:2;display:flex;align-items:center;gap:6px}
+.news-ticker-label::after{content:'';position:absolute;right:-20px;top:0;bottom:0;width:20px;background:linear-gradient(to right,var(--accent),transparent)}
+.news-ticker-track{display:flex;animation:tickerScroll 120s linear infinite;padding-left:140px}
+.news-ticker-track:hover{animation-play-state:paused}
+.news-item{white-space:nowrap;padding:0 30px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.news-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.news-item .dot.up{background:var(--green)}.news-item .dot.down{background:var(--red)}.news-item .dot.neutral{background:var(--amber)}
+.news-item strong{color:var(--text);font-weight:600}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 .market-detail{margin-top:16px}
 .detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .detail-row:last-child{border:none}
@@ -162,6 +189,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="section-title">Mercados Mundiales en Vivo</div>
   <div id="region-tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"></div>
   <div class="markets-grid" id="markets-grid"></div>
+  <div class="news-ticker">
+    <div class="news-ticker-label">♔ LIVE</div>
+    <div class="news-ticker-track" id="news-ticker-track"></div>
+  </div>
   <div id="market-detail-panel" style="display:none">
     <div class="section-title">Análisis Detallado <span id="detail-market-name" style="font-size:12px;color:var(--muted)"></span></div>
     <div class="ai-panel">
@@ -936,4 +967,50 @@ updateClock();
 setInterval(updateClock,1000);
 setInterval(()=>{renderMarkets();},5*60*1000);
 checkAuth();
+
+const NEWS_ITEMS = [
+  {text:'<strong>S&P 500</strong> alcanza máximos históricos impulsado por tecnología',dir:'up'},
+  {text:'<strong>Fed</strong> mantiene tipos sin cambios según actas publicadas',dir:'neutral'},
+  {text:'<strong>NVIDIA</strong> supera expectativas con ingresos récord en IA',dir:'up'},
+  {text:'<strong>BCE</strong> señala posible recorte de tipos en próxima reunión',dir:'neutral'},
+  {text:'<strong>Petróleo Brent</strong> sube un 2% por tensiones en Oriente Medio',dir:'up'},
+  {text:'<strong>Bitcoin</strong> supera los 100.000$ tras aprobación de ETFs spot',dir:'up'},
+  {text:'<strong>IBEX 35</strong> lidera ganancias europeas con banca en cabeza',dir:'up'},
+  {text:'<strong>Inflación EE.UU.</strong> se modera al 2.8% interanual',dir:'neutral'},
+  {text:'<strong>Tesla</strong> anuncia nueva gigafactoría en México',dir:'up'},
+  {text:'<strong>Oro</strong> retrocede tras datos de empleo sólidos',dir:'down'},
+  {text:'<strong>Apple</strong> presenta nuevo chip M5 con IA integrada',dir:'up'},
+  {text:'<strong>Banco Santander</strong> eleva dividendo un 15% tras resultados récord',dir:'up'},
+  {text:'<strong>China</strong> anuncia estímulos fiscales para reactivar consumo',dir:'up'},
+  {text:'<strong>Euro/Dólar</strong> cae a mínimos de 3 meses',dir:'down'},
+];
+
+function renderNewsTicker(){
+  const track=document.getElementById('news-ticker-track');
+  if(!track)return;
+  const items=NEWS_ITEMS.map(n=>`<div class="news-item"><span class="dot ${n.dir}"></span>${n.text}</div>`).join('');
+  track.innerHTML=items+items;
+}
+
+renderNewsTicker();
 </script>
+
+<footer class="app-footer">
+  <div class="footer-disclaimer">
+    <strong>⚠️ AVISO LEGAL:</strong> La información proporcionada por CHESS INVEST es únicamente con fines informativos y educativos.
+    <strong>No constituye asesoramiento financiero, de inversión ni recomendación de compra/venta de valores.</strong>
+    Las opiniones expresadas por nuestra IA son análisis automatizados basados en datos públicos y no garantizan resultados.
+    Toda decisión de inversión es responsabilidad exclusiva del usuario. Rentabilidades pasadas no garantizan rentabilidades futuras.
+    Consulte siempre con un asesor financiero cualificado antes de tomar decisiones de inversión.
+  </div>
+  <div class="footer-links">
+    <a href="#">Términos de Uso</a>
+    <a href="#">Política de Privacidad</a>
+    <a href="#">Aviso Legal</a>
+    <a href="#">Política de Cookies</a>
+    <a href="#">Contacto</a>
+  </div>
+  <div class="footer-copy">© 2026 CHESS INVEST — Todos los derechos reservados</div>
+</footer>
+
+<a href="https://chessinvest.onrender.com" class="floating-icon" title="♔ CHESS INVEST">♔</a>
