@@ -190,26 +190,31 @@ async function getAllIndices() {
 }
 
 async function getMarketsByRegion() {
-  const all = await getAllIndices();
-  const grouped = {};
+  try {
+    const all = await getAllIndices();
+    const grouped = {};
 
-  for (const regionKey of Object.keys(REGIONS)) {
-    const regionMarkets = all.filter((m) => m.region === regionKey);
-    if (regionMarkets.length > 0) {
-      grouped[regionKey] = {
-        label: REGIONS[regionKey].label,
-        order: REGIONS[regionKey].order,
-        markets: regionMarkets,
-        stats: {
-          total: regionMarkets.length,
-          up: regionMarkets.filter((m) => m.dir === 'up').length,
-          down: regionMarkets.filter((m) => m.dir === 'down').length,
-        },
-      };
+    for (const regionKey of Object.keys(REGIONS)) {
+      const regionMarkets = all.filter((m) => m.region === regionKey);
+      if (regionMarkets.length > 0) {
+        grouped[regionKey] = {
+          label: REGIONS[regionKey].label,
+          order: REGIONS[regionKey].order,
+          markets: regionMarkets,
+          stats: {
+            total: regionMarkets.length,
+            up: regionMarkets.filter((m) => m.dir === 'up').length,
+            down: regionMarkets.filter((m) => m.dir === 'down').length,
+          },
+        };
+      }
     }
-  }
 
-  return grouped;
+    return grouped;
+  } catch (err) {
+    logger.error(`getMarketsByRegion failed: ${err.message}`);
+    return {};
+  }
 }
 
 async function getIndexById(id) {
