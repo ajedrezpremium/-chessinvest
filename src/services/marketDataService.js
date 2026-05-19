@@ -9,63 +9,26 @@ const REGIONS = {
   americas: { label: '🌎 Américas', order: 1 },
   europe: { label: '🌍 Europa', order: 2 },
   asia: { label: '🌏 Asia-Pacífico', order: 3 },
-  middle_east: { label: '🕌 Medio Oriente', order: 4 },
-  africa: { label: '🌍 África', order: 5 },
 };
 
 const INDICES = [
-  // ── AMÉRICAS ──
+  // ── AMÉRICAS (4) ──
   { symbol: '^GSPC', id: 'sp500', name: 'S&P 500', region: 'americas', country: 'EE.UU.' },
   { symbol: '^IXIC', id: 'nasdaq', name: 'NASDAQ', region: 'americas', country: 'EE.UU.' },
   { symbol: '^DJI', id: 'dji', name: 'Dow Jones', region: 'americas', country: 'EE.UU.' },
-  { symbol: '^RUT', id: 'russell2000', name: 'Russell 2000', region: 'americas', country: 'EE.UU.' },
-  { symbol: '^GSPTSE', id: 'tsx', name: 'S&P/TSX', region: 'americas', country: 'Canadá' },
   { symbol: '^BVSP', id: 'ibovespa', name: 'Ibovespa', region: 'americas', country: 'Brasil' },
-  { symbol: '^MXX', id: 'ipc', name: 'IPC México', region: 'americas', country: 'México' },
-  { symbol: '^MERV', id: 'merval', name: 'S&P Merval', region: 'americas', country: 'Argentina' },
-  { symbol: '^IPSA', id: 'ipsa', name: 'S&P IPSA', region: 'americas', country: 'Chile' },
-  { symbol: '^COLCAP', id: 'colcap', name: 'COLCAP', region: 'americas', country: 'Colombia' },
 
-  // ── EUROPA ──
+  // ── EUROPA (4) ──
   { symbol: '^GDAXI', id: 'dax', name: 'DAX 40', region: 'europe', country: 'Alemania' },
   { symbol: '^FTSE', id: 'ftse', name: 'FTSE 100', region: 'europe', country: 'Reino Unido' },
   { symbol: '^FCHI', id: 'cac40', name: 'CAC 40', region: 'europe', country: 'Francia' },
-  { symbol: '^STOXX50E', id: 'stoxx50', name: 'Euro Stoxx 50', region: 'europe', country: 'Zona Euro' },
   { symbol: '^IBEX', id: 'ibex', name: 'IBEX 35', region: 'europe', country: 'España' },
-  { symbol: '^FTMIB', id: 'ftsemib', name: 'FTSE MIB', region: 'europe', country: 'Italia' },
-  { symbol: '^AEX', id: 'aex', name: 'AEX', region: 'europe', country: 'Países Bajos' },
-  { symbol: '^SSMI', id: 'smi', name: 'SMI', region: 'europe', country: 'Suiza' },
-  { symbol: '^OMX', id: 'omx', name: 'OMX Stockholm 30', region: 'europe', country: 'Suecia' },
-  { symbol: '^OSEAX', id: 'oseax', name: 'OSEAX', region: 'europe', country: 'Noruega' },
-  { symbol: '^WIG20', id: 'wig20', name: 'WIG20', region: 'europe', country: 'Polonia' },
-  { symbol: '^BUX', id: 'bux', name: 'BUX', region: 'europe', country: 'Hungría' },
 
-  // ── ASIA-PACÍFICO ──
+  // ── ASIA-PACÍFICO (4) ──
   { symbol: '^N225', id: 'nikkei', name: 'Nikkei 225', region: 'asia', country: 'Japón' },
   { symbol: '^HSI', id: 'hsi', name: 'Hang Seng', region: 'asia', country: 'Hong Kong' },
   { symbol: '000001.SS', id: 'shanghai', name: 'Shanghai Comp.', region: 'asia', country: 'China' },
-  { symbol: '399001.SZ', id: 'shenzhen', name: 'Shenzhen Comp.', region: 'asia', country: 'China' },
-  { symbol: '^KS11', id: 'kospi', name: 'KOSPI', region: 'asia', country: 'Corea del Sur' },
-  { symbol: '^TWII', id: 'twse', name: 'TWSE', region: 'asia', country: 'Taiwán' },
-  { symbol: '^STI', id: 'sti', name: 'Straits Times', region: 'asia', country: 'Singapur' },
   { symbol: '^AXJO', id: 'asx200', name: 'S&P/ASX 200', region: 'asia', country: 'Australia' },
-  { symbol: '^NSEI', id: 'nifty50', name: 'NIFTY 50', region: 'asia', country: 'India' },
-  { symbol: '^BSESN', id: 'sensex', name: 'S&P BSE Sensex', region: 'asia', country: 'India' },
-  { symbol: '^JKSE', id: 'jkse', name: 'Jakarta Composite', region: 'asia', country: 'Indonesia' },
-  { symbol: '^KLSE', id: 'klse', name: 'FTSE Bursa Malaysia', region: 'asia', country: 'Malasia' },
-  { symbol: '^SET', id: 'set', name: 'SET Index', region: 'asia', country: 'Tailandia' },
-
-  // ── MEDIO ORIENTE ──
-  { symbol: '^TA125.TA', id: 'ta125', name: 'TA-125', region: 'middle_east', country: 'Israel' },
-  { symbol: '^TASI', id: 'tasi', name: 'Tadawul All Share', region: 'middle_east', country: 'Arabia Saudí' },
-  { symbol: '^DFMGI', id: 'dfm', name: 'DFM General', region: 'middle_east', country: 'Dubai' },
-  { symbol: '^ADX', id: 'adx', name: 'ADX General', region: 'middle_east', country: 'Abu Dhabi' },
-
-  // ── ÁFRICA ──
-  { symbol: '^J203.JO', id: 'jse40', name: 'FTSE/JSE Top 40', region: 'africa', country: 'Sudáfrica' },
-  { symbol: '^EGX30', id: 'egx30', name: 'EGX 30', region: 'africa', country: 'Egipto' },
-  { symbol: '^NGSEINDX', id: 'ngse', name: 'NGX All-Share', region: 'africa', country: 'Nigeria' },
-  { symbol: '^MOEXME', id: 'moex', name: 'MOEX Russia', region: 'europe', country: 'Rusia' },
 ];
 
 function formatNumber(num) {
