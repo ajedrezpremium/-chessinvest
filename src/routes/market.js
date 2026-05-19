@@ -1,10 +1,19 @@
 const { Router } = require('express');
-const { getAllIndices, getIndexById } = require('../services/marketDataService');
+const { getAllIndices, getIndexById, getMarketsByRegion } = require('../services/marketDataService');
 const logger = require('../services/logger');
 
 const router = Router();
 
 router.get('/', async (_req, res, next) => {
+  try {
+    const grouped = await getMarketsByRegion();
+    res.json({ regions: grouped });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/flat', async (_req, res, next) => {
   try {
     const markets = await getAllIndices();
     res.json({ markets });

@@ -120,7 +120,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <div class="app">
 <div class="topbar">
-  <div class="logo">&#9670; MARKETPULSE AI</div>
+  <div class="logo">&#9670; CHESS INVEST</div>
   <div style="display:flex;align-items:center;gap:16px">
     <div id="user-menu" class="user-menu" style="display:none">
       <span class="user-name" id="user-name-display"></span>
@@ -156,7 +156,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <!-- MERCADOS -->
 <div class="section active" id="sec-markets">
-  <div class="section-title">Principales Mercados</div>
+  <div class="section-title">Mercados Mundiales en Vivo</div>
+  <div id="region-tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"></div>
   <div class="markets-grid" id="markets-grid"></div>
   <div id="market-detail-panel" style="display:none">
     <div class="section-title">Análisis Detallado <span id="detail-market-name" style="font-size:12px;color:var(--muted)"></span></div>
@@ -297,13 +298,19 @@ const CRITERIA = [
 ];
 
 let marketsData = [];
+let marketsByRegion = {};
+let activeRegion = 'americas';
 let selectedMarket = null;
 
 async function fetchMarkets(){
   try{
     const res=await fetch('/api/markets');
     const data=await res.json();
-    marketsData=data.markets||data;
+    marketsByRegion=data.regions||{};
+    marketsData=[];
+    for(const key of Object.keys(marketsByRegion)){
+      marketsData=marketsData.concat(marketsByRegion[key].markets||[]);
+    }
     return marketsData;
   }catch(e){
     console.error('Failed to fetch markets',e);
@@ -311,19 +318,41 @@ async function fetchMarkets(){
   }
 }
 
+function renderRegionTabs(){
+  const el=document.getElementById('region-tabs');
+  const regions=Object.keys(marketsByRegion).map(k=>({key,k:marketsByRegion[k]}));
+  el.innerHTML=regions.map(r=>`
+    <button class="tab ${r.key===activeRegion?'active':''}" onclick="switchRegion('${r.key}')" style="padding:8px 16px;font-size:12px;border-radius:8px;background:${r.key===activeRegion?'var(--accent)':'var(--bg3)'};color:${r.key===activeRegion?'#000':'var(--muted)'};border:1px solid var(--border);cursor:pointer">
+      ${r.k.label} <span style="opacity:0.6">(${r.k.markets.length})</span>
+    </button>
+  `).join('');
+}
+
+function switchRegion(region){
+  activeRegion=region;
+  renderRegionTabs();
+  renderMarkets();
+}
+
 async function renderMarkets(){
   const data=await fetchMarkets();
+  renderRegionTabs();
+  const regionData=marketsByRegion[activeRegion]?.markets||[];
   const g=document.getElementById('markets-grid');
-  g.innerHTML=data.map(m=>`
+  if(regionData.length===0){
+    g.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">No hay datos para esta región</div>';
+    return;
+  }
+  g.innerHTML=regionData.map(m=>`
     <div class="mcard ${m.dir}" onclick="selectMarket('${m.id}')">
-      <div class="mcard-name">${m.name}</div>
+      <div class="mcard-name">${m.country} — ${m.name}</div>
       <div class="mcard-val" style="color:${m.dir==='up'?'var(--green)':'var(--red)'}">${m.val}</div>
       <div class="mcard-chg ${m.dir}">${m.dir==='up'?'▲':'▼'} ${m.chg} (${m.pts})</div>
-      <div class="mcard-vol">Vol: ${m.vol}</div>
+      <div class="mcard-vol">Vol: ${m.vol} · ${m.state}</div>
       <canvas class="mini-chart" id="spark-${m.id}"></canvas>
     </div>
   `).join('');
-  data.forEach(m=>drawSparkline(m));
+  regionData.forEach(m=>drawSparkline(m));
   renderStatsRow(data);
 }
 
