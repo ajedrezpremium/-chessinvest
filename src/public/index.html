@@ -115,6 +115,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .cal-title{font-size:13px;font-weight:600;margin-bottom:2px}
 .cal-desc{font-size:11px;color:var(--muted)}
 .cal-consensus{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);min-width:80px;text-align:right}
+.lab-tab.active{color:var(--accent)!important;border-bottom-color:var(--accent)!important}
+.lab-content{min-height:200px}
+.chat-msg{margin-bottom:12px;display:flex;gap:10px}
+.chat-msg.user{flex-direction:row-reverse}
+.chat-bubble{max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6}
+.chat-msg.ai .chat-bubble{background:var(--bg3);border:1px solid var(--border);color:var(--text)}
+.chat-msg.user .chat-bubble{background:var(--accent);color:#000}
+.chat-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.chat-msg.ai .chat-avatar{background:rgba(0,212,255,0.15)}
+.chat-msg.user .chat-avatar{background:rgba(0,230,118,0.15)}
 .news-ticker{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 0;overflow:hidden;position:relative;margin-top:20px}
 .news-ticker-label{position:absolute;left:0;top:0;bottom:0;background:var(--accent);color:#000;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:10px 14px;z-index:2;display:flex;align-items:center;gap:6px}
 .news-ticker-label::after{content:'';position:absolute;right:-20px;top:0;bottom:0;width:20px;background:linear-gradient(to right,var(--accent),transparent)}
@@ -283,28 +293,48 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
-<!-- ANALIZAR ACCIÓN -->
+<!-- EL LABORATORIO -->
 <div class="section" id="sec-analyzer">
   <div class="section-title">El Laboratorio — ChessInvest IA</div>
   <div class="ai-panel">
     <div class="ai-header">
       <div>
         <div class="ai-tag">♔ CHESS INVEST IA</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">Análisis profesional estilo WarrenAI con datos reales</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Análisis profesional + conversaciones con tu amigo inversor</div>
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:end">
-      <div class="field" style="display:flex;flex-direction:column">
-        <label style="font-size:11px;color:var(--muted);margin-bottom:3px">Ticker</label>
-        <input type="text" id="analyzer-ticker" placeholder="Ej: SAN, AAPL, MSFT" style="padding:10px 14px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;width:180px;text-transform:uppercase;outline:none;font-family:'Space Mono',monospace" onkeydown="if(event.key==='Enter')analizarAccion()">
-      </div>
-      <button class="btn" id="btn-analyze" onclick="analizarAccion()">Analizar</button>
+    <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+      <div class="lab-tab active" id="lab-tab-analyze" onclick="switchLabTab('analyze')" style="padding:10px 20px;font-size:13px;font-weight:500;color:var(--accent);cursor:pointer;border-bottom:2px solid var(--accent)">🔬 Analizar Acción</div>
+      <div class="lab-tab" id="lab-tab-chat" onclick="switchLabTab('chat')" style="padding:10px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent">💬 Amigo Inversor</div>
     </div>
-    <div id="analyzer-output">
-      <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
-        <div style="font-size:48px;margin-bottom:12px;opacity:0.3">♔</div>
-        Introduce un ticker y pulsa Analizar para obtener un informe profesional completo
+    <div id="lab-analyze" class="lab-content">
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:end">
+        <div class="field" style="display:flex;flex-direction:column">
+          <label style="font-size:11px;color:var(--muted);margin-bottom:3px">Ticker</label>
+          <input type="text" id="analyzer-ticker" placeholder="Ej: SAN, AAPL, MSFT" style="padding:10px 14px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;width:180px;text-transform:uppercase;outline:none;font-family:'Space Mono',monospace" onkeydown="if(event.key==='Enter')analizarAccion()">
+        </div>
+        <button class="btn" id="btn-analyze" onclick="analizarAccion()">Analizar</button>
       </div>
+      <div id="analyzer-output">
+        <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
+          <div style="font-size:48px;margin-bottom:12px;opacity:0.3">♔</div>
+          Introduce un ticker y pulsa Analizar para obtener un informe profesional completo
+        </div>
+      </div>
+    </div>
+    <div id="lab-chat" class="lab-content" style="display:none">
+      <div id="chat-messages" style="max-height:400px;overflow-y:auto;margin-bottom:16px;padding:10px;background:var(--bg4);border-radius:12px;min-height:200px">
+        <div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">
+          <div style="font-size:36px;margin-bottom:8px">🤝</div>
+          <div>Hola, soy tu <strong style="color:var(--accent)">Amigo Inversor</strong></div>
+          <div style="font-size:11px;margin-top:4px">Pregúntame sobre estrategias, mentalidad inversora, o cualquier duda</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." style="flex:1;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn" id="btn-chat" onclick="sendChat()">Enviar</button>
+      </div>
+      <div id="chat-wisdom" style="margin-top:12px;padding:10px;background:rgba(0,212,255,0.05);border-radius:8px;font-size:11px;color:var(--muted);font-style:italic;display:none"></div>
     </div>
   </div>
 </div>
@@ -935,28 +965,67 @@ async function analizarAccion(){
       body:JSON.stringify({ticker})
     });
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'Analysis failed');
     btn.disabled=false;
     const d=data.data||{};
-    const priceStr=d.price?d.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-    const chgStr=d.change!==undefined?(d.change>=0?'+':'')+d.change.toFixed(2):'—';
-    const chgPctStr=d.changePercent!==undefined?(d.changePercent>=0?'+':'')+d.changePercent.toFixed(2)+'%':'—';
-    const dir=d.change>=0?'up':'down';
+    const fallbackBadge=data.fallback?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,179,0,0.15);color:var(--amber);margin-left:8px">MODO DEMO</span>':'';
     out.innerHTML=`
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
-          <span style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--accent)">${data.ticker}</span>
-          <span style="font-size:14px;font-weight:600;margin-left:10px">${priceStr}</span>
-          <span style="font-size:13px;font-weight:600;color:${dir==='up'?'var(--green)':'var(--red)'};margin-left:8px">${chgStr} (${chgPctStr})</span>
+          <span style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--accent)">${data.ticker}</span>${fallbackBadge}
         </div>
-        <div style="font-size:11px;color:var(--muted)">Cap: ${d.marketCap?formatBigNum(d.marketCap):'—'} · Vol: ${d.volume?formatBigNum(d.volume):'—'}</div>
       </div>
       <div class="summary-text" style="font-size:13px;line-height:1.9">${formatAnalysis(data.analysis)}</div>
     `;
   }catch(e){
     btn.disabled=false;
+    console.error('Analysis error:',e);
     out.innerHTML='<div style="color:var(--red);text-align:center;padding:20px;font-size:13px">'+e.message+'</div>';
   }
+}
+
+function switchLabTab(tab){
+  document.getElementById('lab-tab-analyze').className='lab-tab'+(tab==='analyze'?' active':'');
+  document.getElementById('lab-tab-chat').className='lab-tab'+(tab==='chat'?' active':'');
+  document.getElementById('lab-analyze').style.display=tab==='analyze'?'block':'none';
+  document.getElementById('lab-chat').style.display=tab==='chat'?'block':'none';
+}
+
+async function sendChat(){
+  const input=document.getElementById('chat-input');
+  const msg=input.value.trim();
+  if(!msg)return;
+  input.value='';
+  const messages=document.getElementById('chat-messages');
+  const btn=document.getElementById('btn-chat');
+  btn.disabled=true;
+
+  messages.innerHTML+=`<div class="chat-msg user"><div class="chat-avatar">👤</div><div class="chat-bubble">${msg}</div></div>`;
+  messages.innerHTML+=`<div class="chat-msg ai" id="chat-typing"><div class="chat-avatar">♔</div><div class="chat-bubble" style="color:var(--muted)">Pensando...</div></div>`;
+  messages.scrollTop=messages.scrollHeight;
+
+  try{
+    const res=await fetch('/api/analyzer/chat',{
+      method:'POST',
+      headers:apiHeaders(),
+      body:JSON.stringify({message:msg})
+    });
+    const data=await res.json();
+    const typing=document.getElementById('chat-typing');
+    if(typing)typing.remove();
+    messages.innerHTML+=`<div class="chat-msg ai"><div class="chat-avatar">♔</div><div class="chat-bubble">${formatAnalysis(data.response)}</div></div>`;
+    if(data.wisdom){
+      const wisdomEl=document.getElementById('chat-wisdom');
+      wisdomEl.style.display='block';
+      wisdomEl.textContent='💡 '+data.wisdom;
+    }
+    messages.scrollTop=messages.scrollHeight;
+  }catch(e){
+    const typing=document.getElementById('chat-typing');
+    if(typing)typing.remove();
+    messages.innerHTML+=`<div class="chat-msg ai"><div class="chat-avatar">♔</div><div class="chat-bubble" style="color:var(--red)">Error al conectar. Inténtalo de nuevo.</div></div>`;
+  }
+  btn.disabled=false;
+}
 }
 
 function formatAnalysis(text){
