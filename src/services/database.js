@@ -1,76 +1,76 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const initSqlJs = require('sql.js');
 const fs = require('fs');
+const path = require('path');
 const logger = require('./logger');
 
-const DB_PATH = process.env.DATABASE_URL
-  ? process.env.DATABASE_URL
-  : path.resolve(__dirname, '../../data/chessinvest.db');
+const DB_PATH = path.resolve(__dirname, '../../data/chessinvest.db');
 
 let db;
+let SQL;
 let dbReady = false;
 
-function openDb() {
-  return new Promise((resolve, reject) => {
-    try {
-      if (!DB_PATH.startsWith('sqlite://') && !DB_PATH.startsWith(':memory:')) {
-        const dir = path.dirname(DB_PATH);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-          logger.info(`Created data directory: ${dir}`);
-        }
-      }
-
-      db = new sqlite3.Database(DB_PATH, (err) => {
-        if (err) {
-          logger.error(`SQLite open error: ${err.message}. Using in-memory fallback.`);
-          db = new sqlite3.Database(':memory:');
-        }
-        db.run('PRAGMA journal_mode = WAL', () => {
-          db.run('PRAGMA foreign_keys = ON', () => {
-            dbReady = true;
-            logger.info(`Database initialized: ${DB_PATH.startsWith(':memory:') ? 'in-memory' : DB_PATH}`);
-            resolve();
-          });
-        });
-      });
-    } catch (err) {
-      logger.error(`Database setup failed: ${err.message}. Using in-memory fallback.`);
-      db = new sqlite3.Database(':memory:');
-      dbReady = true;
-      resolve();
+async function openDb() {
+  try {
+    SQL = await initSqlJs();
+    
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
-  });
+
+    if (fs.existsSync(DB_PATH)) {
+      const fileBuffer = fs.readFileSync(DB_PATH);
+      db = new SQL.Database(fileBuffer);
+    } else {
+      db = new SQL.Database();
+    }
+
+    dbReady = true;
+    logger.info(`Database initialized: ${DB_PATH}`);
+  } catch (err) {
+    logger.error(`Database init failed: ${err.message}. Using in-memory fallback.`);
+    SQL = await initSqlJs();
+    db = new SQL.Database();
+    dbReady = true;
+  }
 }
 
 function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    if (!dbReady) return reject(new Error('Database not ready'));
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
+  if (!dbReady) throw new Error('Database not ready');
+  db.run(sql, params);
+  return { lastID: db.getRowsModified(), changes: db.getRowsModified() };
 }
 
 function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    if (!dbReady) return reject(new Error('Database not ready'));
-    db.get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  if (!dbReady) throw new Error('Database not ready');
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  const result = stmt.step() ? stmt.getAsObject() : null;
+  stmt.free();
+  return result;
 }
 
 function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    if (!dbReady) return reject(new Error('Database not ready'));
-    db.all(sql, params, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows || []);
-    });
-  });
+  if (!dbReady) throw new Error('Database not ready');
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  const results = [];
+  while (stmt.step()) {
+    results.push(stmt.getAsObject());
+  }
+  stmt.free();
+  return results;
+}
+
+function saveDb() {
+  if (!db) return;
+  try {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(DB_PATH, buffer);
+  } catch (err) {
+    logger.error(`Failed to save database: ${err.message}`);
+  }
 }
 
 async function initSchema() {
@@ -113,7 +113,7 @@ async function initSchema() {
   ];
 
   for (const sql of tables) {
-    await run(sql);
+    run(sql);
   }
 
   const indexes = [
@@ -125,26 +125,23 @@ async function initSchema() {
 
   for (const sql of indexes) {
     try {
-      await run(sql);
+      run(sql);
     } catch {
       // Index might already exist
     }
   }
+
+  saveDb();
 }
 
 function closeDb() {
-  return new Promise((resolve) => {
-    if (db) {
-      db.close(() => {
-        db = null;
-        dbReady = false;
-        logger.info('Database closed');
-        resolve();
-      });
-    } else {
-      resolve();
-    }
-  });
+  if (db) {
+    saveDb();
+    db.close();
+    db = null;
+    dbReady = false;
+    logger.info('Database closed');
+  }
 }
 
-module.exports = { openDb, run, get, all, closeDb, initSchema };
+module.exports = { openDb, run, get, all, closeDb, initSchema, saveDb };
