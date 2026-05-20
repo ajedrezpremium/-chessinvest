@@ -21,7 +21,8 @@ const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
-const { openDb, initSchema, closeDb } = require('./services/database');
+const { openDb, initSchema, closeDb, run, get, saveDb } = require('./services/database');
+const { hashPassword } = require('./services/auth');
 const { checkPriceAlerts } = require('./services/alertChecker');
 
 const app = express();
@@ -91,6 +92,34 @@ app.get('/api/status', (_req, res) => {
     hasAI: Boolean(config.openRouter.apiKey || config.anthropic.apiKey),
     hasDB: true,
   });
+});
+
+// One-time admin seed endpoint (auto-disables after first use)
+let adminSeeded = false;
+app.get('/api/seed-admin', async (_req, res) => {
+  if (adminSeeded) return res.json({ status: 'already seeded' });
+
+  const adminEmail = 'ajedrezpremium@gmail.com';
+  const existing = get('SELECT id FROM users WHERE email = ?', [adminEmail]);
+
+  if (existing) {
+    run("UPDATE users SET role = 'admin', avatar = '👑' WHERE email = ?", [adminEmail]);
+    run("UPDATE subscriptions SET plan = 'premium', status = 'active' WHERE user_id = ?", [existing.id]);
+    adminSeeded = true;
+    saveDb();
+    return res.json({ status: 'admin updated', id: existing.id });
+  }
+
+  const hash = hashPassword('Chess2026#');
+  const result = run(
+    "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, 'admin', '👑')",
+    [adminEmail, 'Admin', hash],
+  );
+  run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'premium', 'active']);
+  run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
+  adminSeeded = true;
+  saveDb();
+  res.json({ status: 'admin created', id: result.lastID, email: adminEmail, password: 'Chess2026#' });
 });
 
 app.use(notFoundHandler);
