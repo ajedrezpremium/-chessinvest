@@ -16,6 +16,12 @@ const config = {
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY || '',
   },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  },
+  appUrl: process.env.APP_URL || 'http://localhost:3000',
   nodeEnv: process.env.NODE_ENV || 'development',
   isDev: (process.env.NODE_ENV || 'development') === 'development',
 };
@@ -23,5 +29,6 @@ const config = {
 config.jwtSecret = process.env.JWT_SECRET || 'chessinvest_dev_secret_change_in_production';
 config.sslKeyPath = process.env.SSL_KEY_PATH || '';
 config.sslCertPath = process.env.SSL_CERT_PATH || '';
+config.appUrl = process.env.APP_URL || 'http://localhost:3000';
 
 module.exports = config;

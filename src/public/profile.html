@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHESS INVEST - Perfil</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #111827;
+      --bg-tertiary: #1f2937;
+      --text-primary: #e0e0e0;
+      --text-secondary: #8892a0;
+      --accent: #f59e0b;
+      --accent-hover: #d97706;
+      --success: #10b981;
+      --danger: #ef4444;
+      --border: #2d3748;
+    }
+    body.light {
+      --bg-primary: #f5f7fa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #e2e8f0;
+      --text-primary: #1a202c;
+      --text-secondary: #718096;
+      --border: #cbd5e0;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    .header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .back-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .back-link:hover { text-decoration: underline; }
+    .avatar-container { position: relative; }
+    .avatar { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; }
+    .avatar.free { background: #4b5563; color: #9ca3af; }
+    .avatar.basic { background: #3b82f6; color: #fff; }
+    .avatar.pro { background: #8b5cf6; color: #fff; }
+    .avatar.premium { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } }
+    .plan-badge { position: absolute; bottom: -5px; right: -5px; font-size: 1.2rem; }
+    .user-info { flex: 1; }
+    .user-info h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .user-info p { color: var(--text-secondary); font-size: 0.9rem; }
+    .plan-tag { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; margin-top: 0.5rem; }
+    .plan-tag.free { background: #4b5563; color: #9ca3af; }
+    .plan-tag.basic { background: #3b82f6; color: #fff; }
+    .plan-tag.pro { background: #8b5cf6; color: #fff; }
+    .plan-tag.premium { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.5rem; }
+    .tab { padding: 0.75rem 1.25rem; border: none; background: var(--bg-secondary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; transition: all 0.2s; }
+    .tab:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .tab.active { background: var(--accent); color: #000; font-weight: bold; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+    .card h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
+    .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 0.5rem 1rem; font-size: 0.8rem; }
+    .list-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-bottom: 1px solid var(--border); }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-info { flex: 1; }
+    .list-item-title { font-weight: bold; margin-bottom: 0.25rem; }
+    .list-item-subtitle { font-size: 0.8rem; color: var(--text-secondary); }
+    .list-item-actions { display: flex; gap: 0.5rem; }
+    .progress-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+    .status-badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    .status-badge.pending { background: #f59e0b; color: #000; }
+    .status-badge.tracking { background: #3b82f6; color: #fff; }
+    .status-badge.executed { background: #10b981; color: #fff; }
+    .status-badge.above { background: #10b981; color: #fff; }
+    .status-badge.below { background: #ef4444; color: #fff; }
+    .toggle { position: relative; width: 48px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-tertiary); border-radius: 24px; transition: 0.3s; }
+    .toggle-slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .toggle input:checked + .toggle-slider { background: var(--accent); }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(24px); }
+    .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5; }
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--bg-secondary); border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; }
+    .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 1rem 2rem; border-radius: 8px; display: none; z-index: 1001; }
+    .toast.error { background: var(--danger); }
+    @media (max-width: 768px) {
+      .header { flex-direction: column; text-align: center; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .tabs { gap: 0.25rem; }
+      .tab { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="/" class="back-link">← Dashboard</a>
+      <div class="avatar-container">
+        <div id="avatar" class="avatar free">?</div>
+        <span id="planBadge" class="plan-badge"></span>
+      </div>
+      <div class="user-info">
+        <h1 id="username">Cargando...</h1>
+        <p id="email">...</p>
+        <span id="planTag" class="plan-tag free">Gratis</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="tab" data-tab="settings">⚙️ Configuración</button>
+      <button class="tab" data-tab="billing">💳 Plan</button>
+      <button class="tab" data-tab="investments">📈 Inversiones</button>
+      <button class="tab" data-tab="goals">🎯 Objetivos</button>
+      <button class="tab" data-tab="ideas">💡 Ideas</button>
+      <button class="tab" data-tab="alerts">🔔 Alertas</button>
+      <button class="tab" onclick="window.location.href='/analyzer'">📊 Técnico</button>
+    </div>
+
+    <div id="dashboard" class="section active">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="card">
+        <h3>Resumen de Actividad</h3>
+        <div id="activitySummary">Cargando...</div>
+      </div>
+    </div>
+
+    <div id="settings" class="section">
+      <div class="card">
+        <h3>Preferencias</h3>
+        <div class="form-group">
+          <label>Tema</label>
+          <select id="theme">
+            <option value="dark">Oscuro</option>
+            <option value="light">Claro</option>
+            <option value="auto">Automático</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Idioma</label>
+          <select id="language">
+            <option value="es">Español</option>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Zona Horaria</label>
+          <select id="timezone"></select>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button>
+      </div>
+      <div class="card">
+        <h3>Notificaciones</h3>
+        <div class="list-item">
+          <div class="list-item-info">
+            <div class="list-item-title">Email</div>
+            <div class="list-item-subtitle">Recibe alertas y resúmenes por email</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="notifEmail" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="list-item">
+          <div class="list-item-info">
+            <div class="list-item-title">SMS</div>
+            <div class="list-item-subtitle">Alertas críticas por mensaje (Premium)</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="notifSms"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🎙️ Amigo Inversor con Voz</h3>
+        <div class="list-item">
+          <div class="list-item-info">
+            <div class="list-item-title">Respuestas por voz</div>
+            <div class="list-item-subtitle">El IA lee sus respuestas en voz alta</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="voiceEnabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="list-item">
+          <div class="list-item-info">
+            <div class="list-item-title">Input por voz</div>
+            <div class="list-item-subtitle">Habla en lugar de escribir</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="voiceInputEnabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="form-group" style="margin-top:1rem">
+          <label>Velocidad de voz</label>
+          <input type="range" id="voiceRate" min="0.5" max="2" step="0.1" value="1" style="width:100%">
+        </div>
+        <div class="form-group">
+          <label>Tono de voz</label>
+          <input type="range" id="voicePitch" min="0.5" max="2" step="0.1" value="1" style="width:100%">
+        </div>
+        <div class="form-group">
+          <label>Idioma de voz</label>
+          <select id="voiceLang">
+            <option value="es-ES">Español</option>
+            <option value="en-US">English</option>
+            <option value="fr-FR">Français</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="billing" class="section">
+      <div class="card">
+        <h3>Plan Actual</h3>
+        <div id="currentPlanInfo">Cargando...</div>
+        <div style="margin-top: 1rem;">
+          <a href="/pricing" class="btn btn-primary">Cambiar Plan</a>
+          <button id="manageBillingBtn" class="btn btn-secondary" style="display: none; margin-left: 0.5rem;">Gestionar Facturación</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Uso de Límites</h3>
+        <div id="limitsUsage">Cargando...</div>
+      </div>
+    </div>
+
+    <div id="investments" class="section">
+      <div class="card">
+        <h3>Watchlist</h3>
+        <div id="watchlistItems"><div class="empty-state">Sin tickers en watchlist</div></div>
+      </div>
+      <div class="card">
+        <h3>Portafolio</h3>
+        <div id="portfolioItems"><div class="empty-state">Sin posiciones en portafolio</div></div>
+      </div>
+    </div>
+
+    <div id="goals" class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Mis Objetivos</h3>
+        <button class="btn btn-primary btn-sm" onclick="openModal('goalModal')">+ Nuevo Objetivo</button>
+      </div>
+      <div id="goalsList"><div class="empty-state">Sin objetivos creados</div></div>
+    </div>
+
+    <div id="ideas" class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Ideas de Inversión</h3>
+        <button class="btn btn-primary btn-sm" onclick="openModal('ideaModal')">+ Nueva Idea</button>
+      </div>
+      <div id="ideasList"><div class="empty-state">Sin ideas guardadas</div></div>
+    </div>
+
+    <div id="alerts" class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Alertas de Precio</h3>
+        <button class="btn btn-primary btn-sm" onclick="openModal('alertModal')">+ Nueva Alerta</button>
+      </div>
+      <div id="alertsList"><div class="empty-state">Sin alertas configuradas</div></div>
+    </div>
+  </div>
+
+  <div id="goalModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Nuevo Objetivo</h3>
+        <button class="modal-close" onclick="closeModal('goalModal')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>Título</label>
+        <input type="text" id="goalTitle" placeholder="Ej: Ahorrar para jubilación">
+      </div>
+      <div class="form-group">
+        <label>Objetivo (€)</label>
+        <input type="number" id="goalTarget" placeholder="100000">
+      </div>
+      <div class="form-group">
+        <label>Actual (€)</label>
+        <input type="number" id="goalCurrent" placeholder="0" value="0">
+      </div>
+      <div class="form-group">
+        <label>Fecha Límite</label>
+        <input type="date" id="goalDeadline">
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="goalType">
+          <option value="savings">Ahorro</option>
+          <option value="investment">Inversión</option>
+          <option value="retirement">Jubilación</option>
+          <option value="other">Otro</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="createGoal()">Crear Objetivo</button>
+    </div>
+  </div>
+
+  <div id="ideaModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Nueva Idea de Inversión</h3>
+        <button class="modal-close" onclick="closeModal('ideaModal')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>Ticker</label>
+        <input type="text" id="ideaTicker" placeholder="AAPL">
+      </div>
+      <div class="form-group">
+        <label>Tesis</label>
+        <textarea id="ideaThesis" placeholder="¿Por qué es una buena inversión?"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Notas</label>
+        <textarea id="ideaNotes" placeholder="Notas adicionales..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select id="ideaStatus">
+          <option value="pending">Pendiente</option>
+          <option value="tracking">En seguimiento</option>
+          <option value="executed">Ejecutada</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="createIdea()">Guardar Idea</button>
+    </div>
+  </div>
+
+  <div id="alertModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Nueva Alerta de Precio</h3>
+        <button class="modal-close" onclick="closeModal('alertModal')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>Ticker</label>
+        <input type="text" id="alertTicker" placeholder="AAPL">
+      </div>
+      <div class="form-group">
+        <label>Precio Objetivo (€)</label>
+        <input type="number" id="alertPrice" placeholder="150.00" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Dirección</label>
+        <select id="alertDirection">
+          <option value="above">Por encima</option>
+          <option value="below">Por debajo</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="createAlert()">Crear Alerta</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('token');
+    let currentUser = null;
+    let subscription = null;
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast${isError ? ' error' : ''}`;
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    const timezones = Intl.supportedValuesOf('timeZone');
+    const tzSelect = document.getElementById('timezone');
+    timezones.forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz;
+      opt.textContent = tz.replace(/_/g, ' ');
+      tzSelect.appendChild(opt);
+    });
+
+    async function loadProfile() {
+      if (!token) { window.location.href = '/'; return; }
+
+      try {
+        const [summaryRes, settingsRes] = await Promise.all([
+          fetch(`${API}/profile/summary`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/profile/settings`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        if (!summaryRes.ok || !settingsRes.ok) throw new Error('Failed to load profile');
+
+        const summary = await summaryRes.json();
+        const settings = await settingsRes.json();
+        currentUser = summary.user;
+        subscription = summary.subscription;
+
+        document.getElementById('username').textContent = currentUser.username;
+        document.getElementById('email').textContent = currentUser.email;
+
+        const plan = subscription?.plan || 'free';
+        const planNames = { free: 'Gratis', basic: 'Básico', pro: 'Pro', premium: 'Premium' };
+        const planEmojis = { free: '🆓', basic: '⭐', pro: '💎', premium: '👑' };
+        const avatar = document.getElementById('avatar');
+        avatar.className = `avatar ${plan}`;
+        avatar.textContent = currentUser.username.charAt(0).toUpperCase();
+        document.getElementById('planBadge').textContent = planEmojis[plan];
+        const planTag = document.getElementById('planTag');
+        planTag.className = `plan-tag ${plan}`;
+        planTag.textContent = planNames[plan];
+
+        document.getElementById('theme').value = settings.theme || 'dark';
+        document.getElementById('language').value = settings.language || 'es';
+        document.getElementById('timezone').value = settings.timezone || 'Europe/Madrid';
+        document.getElementById('notifEmail').checked = settings.notifications_email === 1;
+        document.getElementById('notifSms').checked = settings.notifications_sms === 1;
+        document.getElementById('voiceEnabled').checked = settings.voice_enabled === 1;
+        document.getElementById('voiceInputEnabled').checked = settings.voice_input_enabled === 1;
+        document.getElementById('voiceRate').value = settings.voice_rate || 1;
+        document.getElementById('voicePitch').value = settings.voice_pitch || 1;
+        document.getElementById('voiceLang').value = settings.voice_lang || 'es-ES';
+
+        if (document.getElementById('theme').value === 'light') document.body.classList.add('light');
+
+        const stats = summary.stats;
+        document.getElementById('statsGrid').innerHTML = `
+          <div class="stat-card"><div class="stat-value">${stats.watchlistCount}</div><div class="stat-label">Watchlist</div></div>
+          <div class="stat-card"><div class="stat-value">${stats.portfolioCount}</div><div class="stat-label">Portafolio</div></div>
+          <div class="stat-card"><div class="stat-value">${stats.goalsCount}</div><div class="stat-label">Objetivos</div></div>
+          <div class="stat-card"><div class="stat-value">${stats.ideasCount}</div><div class="stat-label">Ideas</div></div>
+          <div class="stat-card"><div class="stat-value">${stats.activeAlerts}</div><div class="stat-label">Alertas</div></div>
+        `;
+
+        document.getElementById('currentPlanInfo').innerHTML = `
+          <p><strong>Plan:</strong> ${planNames[plan]} ${planEmojis[plan]}</p>
+          <p><strong>Estado:</strong> ${subscription?.status || 'active'}</p>
+          ${subscription?.current_period_end ? `<p><strong>Renovación:</strong> ${new Date(subscription.current_period_end).toLocaleDateString('es-ES')}</p>` : ''}
+          ${subscription?.cancel_at ? `<p><strong>Cancela el:</strong> ${new Date(subscription.cancel_at).toLocaleDateString('es-ES')}</p>` : ''}
+        `;
+
+        if (subscription?.stripe_customer_id) {
+          document.getElementById('manageBillingBtn').style.display = 'inline-block';
+          document.getElementById('manageBillingBtn').onclick = async () => {
+            const res = await fetch(`${API}/subscription/billing-portal`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (data.url) window.open(data.url, '_blank');
+          };
+        }
+
+        const subRes = await fetch(`${API}/subscription/status`, { headers: { Authorization: `Bearer ${token}` } });
+        const subData = await subRes.json();
+        const limits = subData.limits;
+        document.getElementById('limitsUsage').innerHTML = `
+          <div class="list-item">
+            <div class="list-item-info"><div class="list-item-title">Watchlist</div></div>
+            <div>${limits.watchlist.current}/${limits.watchlist.max === -1 ? '∞' : limits.watchlist.max}</div>
+          </div>
+          <div class="list-item">
+            <div class="list-item-info"><div class="list-item-title">Portafolio</div></div>
+            <div>${limits.portfolios.current}/${limits.portfolios.max === -1 ? '∞' : limits.portfolios.max}</div>
+          </div>
+          <div class="list-item">
+            <div class="list-item-info"><div class="list-item-title">Alertas</div></div>
+            <div>${limits.alerts.current}/${limits.alerts.max === -1 ? '∞' : limits.alerts.max}</div>
+          </div>
+          <div class="list-item">
+            <div class="list-item-info"><div class="list-item-title">Análisis IA/día</div></div>
+            <div>${limits.aiAnalysisPerDay === -1 ? 'Ilimitado' : limits.aiAnalysisPerDay}</div>
+          </div>
+        `;
+
+        const [watchlistRes, portfolioRes, goalsRes, ideasRes, alertsRes] = await Promise.all([
+          fetch(`${API}/profile/watchlist`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ json: () => [] })),
+          fetch(`${API}/portfolio`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ json: () => [] })),
+          fetch(`${API}/profile/goals`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/profile/ideas`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/profile/alerts`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        const watchlist = await watchlistRes.json();
+        const portfolio = await portfolioRes.json();
+        const goals = await goalsRes.json();
+        const ideas = await ideasRes.json();
+        const alerts = await alertsRes.json();
+
+        if (watchlist.length > 0) {
+          document.getElementById('watchlistItems').innerHTML = watchlist.map(w => `
+            <div class="list-item">
+              <div class="list-item-info"><div class="list-item-title">${w.ticker}</div><div class="list-item-subtitle">Añadido ${new Date(w.added_at).toLocaleDateString('es-ES')}</div></div>
+            </div>
+          `).join('');
+        }
+
+        if (portfolio.length > 0) {
+          document.getElementById('portfolioItems').innerHTML = portfolio.map(p => `
+            <div class="list-item">
+              <div class="list-item-info"><div class="list-item-title">${p.ticker}</div><div class="list-item-subtitle">${p.shares} shares @ ${p.avg_price}€</div></div>
+            </div>
+          `).join('');
+        }
+
+        if (goals.length > 0) {
+          document.getElementById('goalsList').innerHTML = goals.map(g => {
+            const progress = g.target_amount > 0 ? Math.min(100, (g.current_amount / g.target_amount) * 100) : 0;
+            return `
+              <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                  <div>
+                    <h4>${g.title}</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem;">${g.current_amount.toLocaleString('es-ES')}€ / ${g.target_amount.toLocaleString('es-ES')}€</p>
+                  </div>
+                  <div class="list-item-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="editGoal(${g.id})">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})">🗑️</button>
+                  </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">${progress.toFixed(0)}% completado ${g.deadline ? ' • Fecha: ' + new Date(g.deadline).toLocaleDateString('es-ES') : ''}</p>
+              </div>
+            `;
+          }).join('');
+        }
+
+        if (ideas.length > 0) {
+          document.getElementById('ideasList').innerHTML = ideas.map(i => `
+            <div class="card">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <h4>${i.ticker} <span class="status-badge ${i.status}">${i.status}</span></h4>
+                  ${i.thesis ? `<p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">${i.thesis}</p>` : ''}
+                  ${i.notes ? `<p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">📝 ${i.notes}</p>` : ''}
+                </div>
+                <div class="list-item-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="editIdea(${i.id})">✏️</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteIdea(${i.id})">🗑️</button>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        if (alerts.length > 0) {
+          document.getElementById('alertsList').innerHTML = alerts.map(a => `
+            <div class="list-item">
+              <div class="list-item-info">
+                <div class="list-item-title">${a.ticker} <span class="status-badge ${a.direction}">${a.direction === 'above' ? '↑' : '↓'} ${a.target_price}€</span></div>
+                <div class="list-item-subtitle">Creada ${new Date(a.created_at).toLocaleDateString('es-ES')}</div>
+              </div>
+              <div class="list-item-actions">
+                <button class="btn btn-danger btn-sm" onclick="deleteAlert(${a.id})">🗑️</button>
+              </div>
+            </div>
+          `).join('');
+        }
+
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+        showToast('Error al cargar perfil', true);
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        const res = await fetch(`${API}/profile/settings`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            theme: document.getElementById('theme').value,
+            language: document.getElementById('language').value,
+            timezone: document.getElementById('timezone').value,
+            notifications_email: document.getElementById('notifEmail').checked ? 1 : 0,
+            notifications_sms: document.getElementById('notifSms').checked ? 1 : 0,
+            voice_enabled: document.getElementById('voiceEnabled').checked ? 1 : 0,
+            voice_input_enabled: document.getElementById('voiceInputEnabled').checked ? 1 : 0,
+            voice_rate: parseFloat(document.getElementById('voiceRate').value),
+            voice_pitch: parseFloat(document.getElementById('voicePitch').value),
+            voice_lang: document.getElementById('voiceLang').value,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Configuración guardada');
+        if (document.getElementById('theme').value === 'light') document.body.classList.add('light');
+        else document.body.classList.remove('light');
+      } catch (err) {
+        showToast('Error al guardar configuración', true);
+      }
+    }
+
+    async function createGoal() {
+      try {
+        const res = await fetch(`${API}/profile/goals`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: document.getElementById('goalTitle').value,
+            target_amount: parseFloat(document.getElementById('goalTarget').value),
+            current_amount: parseFloat(document.getElementById('goalCurrent').value) || 0,
+            deadline: document.getElementById('goalDeadline').value || null,
+            type: document.getElementById('goalType').value,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Objetivo creado');
+        closeModal('goalModal');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al crear objetivo', true);
+      }
+    }
+
+    async function createIdea() {
+      try {
+        const res = await fetch(`${API}/profile/ideas`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticker: document.getElementById('ideaTicker').value.toUpperCase(),
+            thesis: document.getElementById('ideaThesis').value,
+            notes: document.getElementById('ideaNotes').value,
+            status: document.getElementById('ideaStatus').value,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Idea guardada');
+        closeModal('ideaModal');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al crear idea', true);
+      }
+    }
+
+    async function createAlert() {
+      try {
+        const res = await fetch(`${API}/profile/alerts`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticker: document.getElementById('alertTicker').value.toUpperCase(),
+            target_price: parseFloat(document.getElementById('alertPrice').value),
+            direction: document.getElementById('alertDirection').value,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Alerta creada');
+        closeModal('alertModal');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al crear alerta', true);
+      }
+    }
+
+    async function deleteGoal(id) {
+      if (!confirm('¿Eliminar este objetivo?')) return;
+      await fetch(`${API}/profile/goals/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      showToast('Objetivo eliminado');
+      loadProfile();
+    }
+
+    async function deleteIdea(id) {
+      if (!confirm('¿Eliminar esta idea?')) return;
+      await fetch(`${API}/profile/ideas/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      showToast('Idea eliminada');
+      loadProfile();
+    }
+
+    async function deleteAlert(id) {
+      if (!confirm('¿Eliminar esta alerta?')) return;
+      await fetch(`${API}/profile/alerts/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      showToast('Alerta eliminada');
+      loadProfile();
+    }
+
+    function editGoal(id) { showToast('Edición de objetivos próximamente'); }
+    function editIdea(id) { showToast('Edición de ideas próximamente'); }
+
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+    });
+
+    loadProfile();
+  </script>
+</body>
+</html>

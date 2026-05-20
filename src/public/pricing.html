@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHESS INVEST - Planes y Precios</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0e17;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+    .header { text-align: center; margin-bottom: 3rem; }
+    .header h1 { font-size: 2.5rem; color: #fff; margin-bottom: 0.5rem; }
+    .header p { color: #8892a0; font-size: 1.1rem; }
+    .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }
+    .plan {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 2rem;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .plan:hover { transform: translateY(-4px); }
+    .plan.featured { border-color: #f59e0b; box-shadow: 0 0 30px rgba(245, 158, 11, 0.2); }
+    .plan-badge {
+      position: absolute; top: -12px; right: 20px;
+      background: #f59e0b; color: #000; padding: 4px 12px;
+      border-radius: 20px; font-size: 0.75rem; font-weight: bold;
+    }
+    .plan-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .plan-name { font-size: 1.5rem; font-weight: bold; color: #fff; margin-bottom: 0.5rem; }
+    .plan-price { font-size: 2.5rem; font-weight: bold; color: #fff; margin-bottom: 0.5rem; }
+    .plan-price span { font-size: 1rem; color: #8892a0; font-weight: normal; }
+    .plan-desc { color: #8892a0; margin-bottom: 1.5rem; }
+    .plan-features { list-style: none; margin-bottom: 2rem; }
+    .plan-features li { padding: 0.5rem 0; border-bottom: 1px solid #1f2937; color: #d1d5db; }
+    .plan-features li:last-child { border-bottom: none; }
+    .plan-features li::before { content: "✓"; color: #10b981; margin-right: 0.5rem; }
+    .plan-features li.disabled { color: #4b5563; }
+    .plan-features li.disabled::before { content: "✗"; color: #4b5563; }
+    .btn {
+      display: block; width: 100%; padding: 1rem;
+      border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: bold;
+      cursor: pointer; transition: all 0.2s;
+      text-align: center; text-decoration: none;
+    }
+    .btn-primary { background: #f59e0b; color: #000; }
+    .btn-primary:hover { background: #d97706; }
+    .btn-secondary { background: #1f2937; color: #fff; }
+    .btn-secondary:hover { background: #374151; }
+    .btn-outline { background: transparent; border: 1px solid #f59e0b; color: #f59e0b; }
+    .btn-outline:hover { background: #f59e0b; color: #000; }
+    .current-plan { text-align: center; margin-bottom: 2rem; padding: 1.5rem; background: #111827; border-radius: 12px; }
+    .current-plan h2 { color: #fff; margin-bottom: 0.5rem; }
+    .current-plan p { color: #8892a0; }
+    .back-link { display: inline-block; margin-bottom: 2rem; color: #f59e0b; text-decoration: none; }
+    .back-link:hover { text-decoration: underline; }
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      background: #10b981; color: #fff; padding: 1rem 2rem;
+      border-radius: 8px; display: none; z-index: 1000;
+    }
+    .toast.error { background: #ef4444; }
+    @media (max-width: 768px) {
+      .header h1 { font-size: 2rem; }
+      .plans { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← Volver al Dashboard</a>
+    
+    <div class="header">
+      <h1>♔ Elige tu Plan de Inversión</h1>
+      <p>Desbloquea todo el potencial de CHESS INVEST con nuestros planes premium</p>
+    </div>
+
+    <div id="currentPlanSection" class="current-plan" style="display: none;">
+      <h2>Tu plan actual: <span id="currentPlanName">Gratis</span></h2>
+      <p id="currentPlanDetails">Renovación: --</p>
+      <button id="manageBillingBtn" class="btn btn-outline" style="display: none; max-width: 200px; margin: 1rem auto 0;">Gestionar Suscripción</button>
+    </div>
+
+    <div class="plans">
+      <div class="plan">
+        <div class="plan-icon">🆓</div>
+        <div class="plan-name">Gratis</div>
+        <div class="plan-price">€0<span>/mes</span></div>
+        <p class="plan-desc">Para empezar a explorar los mercados</p>
+        <ul class="plan-features">
+          <li>6 índices en vivo</li>
+          <li>1 análisis IA / día</li>
+          <li>3 recomendaciones</li>
+          <li>5 tickers en watchlist</li>
+          <li>1 cartera virtual</li>
+          <li class="disabled">Análisis técnico</li>
+          <li class="disabled">Alertas de precio</li>
+          <li class="disabled">Exportar datos</li>
+        </ul>
+        <button class="btn btn-secondary" disabled>Plan Actual</button>
+      </div>
+
+      <div class="plan">
+        <div class="plan-icon">⭐</div>
+        <div class="plan-name">Básico</div>
+        <div class="plan-price">€4,99<span>/mes</span></div>
+        <p class="plan-desc">Para inversores que quieren más herramientas</p>
+        <ul class="plan-features">
+          <li>12 índices en vivo</li>
+          <li>5 análisis IA / día</li>
+          <li>10 recomendaciones</li>
+          <li>25 tickers en watchlist</li>
+          <li>3 carteras virtuales</li>
+          <li>3 alertas de precio</li>
+          <li class="disabled">Análisis técnico avanzado</li>
+          <li class="disabled">Exportar datos</li>
+        </ul>
+        <button class="btn btn-primary" onclick="subscribe('basic')">Elegir Básico</button>
+      </div>
+
+      <div class="plan featured">
+        <div class="plan-badge">POPULAR</div>
+        <div class="plan-icon">💎</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">€14,99<span>/mes</span></div>
+        <p class="plan-desc">Para traders serios que necesitan herramientas pro</p>
+        <ul class="plan-features">
+          <li>30+ índices en vivo</li>
+          <li>Análisis IA ilimitado</li>
+          <li>Recomendaciones ilimitadas</li>
+          <li>Watchlist ilimitada</li>
+          <li>Carteras ilimitadas</li>
+          <li>15 alertas de precio</li>
+          <li>Análisis técnico avanzado</li>
+          <li>Exportar a CSV</li>
+        </ul>
+        <button class="btn btn-primary" onclick="subscribe('pro')">Elegir Pro</button>
+      </div>
+
+      <div class="plan">
+        <div class="plan-icon">👑</div>
+        <div class="plan-name">Premium</div>
+        <div class="plan-price">€49,99<span>/mes</span></div>
+        <p class="plan-desc">Acceso total a todas las funciones y soporte prioritario</p>
+        <ul class="plan-features">
+          <li>50+ índices + cripto</li>
+          <li>IA ilimitada + prioridad</li>
+          <li>Amigo Inversor con voz</li>
+          <li>Todo ilimitado</li>
+          <li>Alertas SMS</li>
+          <li>API access</li>
+          <li>Webhook export</li>
+          <li>Soporte telefónico</li>
+        </ul>
+        <button class="btn btn-primary" onclick="subscribe('premium')">Elegir Premium</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('token');
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast${isError ? ' error' : ''}`;
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    async function loadCurrentPlan() {
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API}/subscription/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        document.getElementById('currentPlanSection').style.display = 'block';
+        document.getElementById('currentPlanName').textContent = data.plan.charAt(0).toUpperCase() + data.plan.slice(1);
+        document.getElementById('currentPlanDetails').textContent = data.currentPeriodEnd
+          ? `Renovación: ${new Date(data.currentPeriodEnd).toLocaleDateString('es-ES')}`
+          : 'Plan gratuito';
+
+        if (data.stripeCustomerId) {
+          document.getElementById('manageBillingBtn').style.display = 'block';
+          document.getElementById('manageBillingBtn').onclick = async () => {
+            try {
+              const res = await fetch(`${API}/subscription/billing-portal`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              });
+              const data = await res.json();
+              if (data.url) window.location.href = data.url;
+            } catch (err) {
+              showToast('Error al abrir portal de facturación', true);
+            }
+          };
+        }
+      } catch (err) {
+        console.error('Failed to load plan:', err);
+      }
+    }
+
+    async function subscribe(plan) {
+      if (!token) {
+        showToast('Debes iniciar sesión primero', true);
+        window.location.href = '/';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/subscription/checkout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast(data.error || 'Error al crear checkout', true);
+          return;
+        }
+
+        window.location.href = data.url;
+      } catch (err) {
+        showToast('Error de conexión', true);
+      }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('session_id')) {
+      const plan = urlParams.get('plan');
+      showToast(`¡Suscripción ${plan} activada con éxito!`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('cancelled')) {
+      showToast('Pago cancelado. Puedes intentarlo de nuevo.', true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    loadCurrentPlan();
+  </script>
+</body>
+</html>

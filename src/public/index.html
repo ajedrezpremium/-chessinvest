@@ -168,6 +168,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .btn-danger:hover{background:#cc3333}
 .auth-btn{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
 .auth-btn:hover{color:var(--accent);border-color:var(--accent)}
+.profile-btn{width:40px;height:40px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;text-decoration:none}
+.profile-btn:hover{transform:scale(1.1);border-color:var(--accent)}
+.profile-btn.free{background:#4b5563;border-color:#6b7280}
+.profile-btn.basic{background:#3b82f6;border-color:#60a5fa}
+.profile-btn.pro{background:#8b5cf6;border-color:#a78bfa}
+.profile-btn.premium{background:linear-gradient(135deg,#f59e0b,#d97706);border-color:#fbbf24;animation:profilePulse 2s infinite}
+@keyframes profilePulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.4)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+.profile-avatar{font-size:18px;font-weight:bold;color:#fff}
+.profile-badge{position:absolute;bottom:-2px;right:-2px;font-size:10px;background:var(--bg2);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
 .floating-icon{position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#000;box-shadow:0 4px 20px rgba(0,212,255,0.4);cursor:pointer;transition:all 0.3s;z-index:999;text-decoration:none}
 .floating-icon:hover{transform:scale(1.1);box-shadow:0 6px 30px rgba(0,212,255,0.6)}
 </style>
@@ -176,12 +185,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <div class="topbar">
   <div class="logo">♔ CHESS INVEST</div>
   <div style="display:flex;align-items:center;gap:16px">
-    <div id="user-menu" class="user-menu" style="display:none">
-      <span class="user-name" id="user-name-display"></span>
-      <button class="auth-btn" onclick="logout()">Salir</button>
-    </div>
-    <button class="auth-btn" id="login-btn" onclick="showAuthModal()">Ingresar</button>
     <div class="clock"><div class="live-dot"></div><span id="clock-time">--:--:--</span> <span style="color:var(--border-color)">|</span> <span id="clock-date" style="color:var(--muted)"></span></div>
+<div id="user-menu" style="display:none">
+  <a href="/profile" id="profile-btn" class="profile-btn free" title="Mi Perfil">
+    <span class="profile-avatar" id="profile-avatar">?</span>
+    <span class="profile-badge" id="profile-badge"></span>
+  </a>
+  <button class="auth-btn" onclick="logout()" style="margin-left:8px">Salir</button>
+</div>
+    <button class="auth-btn" id="login-btn" onclick="showAuthModal()">Ingresar</button>
   </div>
 </div>
 
@@ -205,6 +217,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="tab" onclick="switchTab('algoritmo')">Algoritmo</div>
   <div class="tab" onclick="switchTab('portfolio')">Mi Cartera</div>
   <div class="tab" onclick="switchTab('analyzer')">El Laboratorio</div>
+  <div class="tab" onclick="window.location.href='/analyzer'">📊 Técnico</div>
   <div class="tab" onclick="switchTab('calendar')">Calendario</div>
 </div>
 
@@ -849,8 +862,13 @@ function updateUserUI(){
   const btn=document.getElementById('login-btn');
   if(currentUser){
     menu.style.display='flex';
-    document.getElementById('user-name-display').textContent='● '+currentUser.username;
     btn.style.display='none';
+    const plan=currentUser.plan||'free';
+    const profileBtn=document.getElementById('profile-btn');
+    profileBtn.className='profile-btn '+plan;
+    document.getElementById('profile-avatar').textContent=currentUser.username.charAt(0).toUpperCase();
+    const planEmojis={free:'🆓',basic:'⭐',pro:'💎',premium:'👑'};
+    document.getElementById('profile-badge').textContent=planEmojis[plan]||'';
   }else{
     menu.style.display='none';
     btn.style.display='inline-block';

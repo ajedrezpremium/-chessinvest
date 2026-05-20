@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHESS INVEST - Análisis Técnico</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #111827;
+      --bg-tertiary: #1f2937;
+      --text-primary: #e0e0e0;
+      --text-secondary: #8892a0;
+      --accent: #f59e0b;
+      --accent-hover: #d97706;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #3b82f6;
+      --border: #2d3748;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+    .back-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .back-link:hover { text-decoration: underline; }
+    .search-box { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+    .search-box input { flex: 1; padding: 0.75rem 1rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 1rem; }
+    .search-box button { padding: 0.75rem 1.5rem; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .search-box button:hover { background: var(--accent-hover); }
+    .signal-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
+    .signal-badge { display: inline-block; padding: 0.5rem 1.5rem; border-radius: 8px; font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0; }
+    .signal-badge.buy { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .signal-badge.sell { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .signal-badge.neutral { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .price-display { font-size: 2rem; font-weight: bold; margin: 0.5rem 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .card h3 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .indicator { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+    .indicator:last-child { border-bottom: none; }
+    .indicator-label { color: var(--text-secondary); font-size: 0.9rem; }
+    .indicator-value { font-weight: bold; font-family: 'Space Mono', monospace; }
+    .indicator-value.bullish { color: var(--success); }
+    .indicator-value.bearish { color: var(--danger); }
+    .indicator-value.neutral { color: var(--warning); }
+    .fib-level { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .fib-level:last-child { border-bottom: none; }
+    .fib-pct { color: var(--text-secondary); }
+    .fib-price { font-family: 'Space Mono', monospace; }
+    .pattern-tag { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.8rem; margin: 0.25rem; }
+    .pattern-tag.bullish { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .pattern-tag.bearish { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .pattern-tag.neutral { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .signal-list { list-style: none; }
+    .signal-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .signal-list li:last-child { border-bottom: none; }
+    .signal-list li::before { content: "•"; color: var(--accent); margin-right: 0.5rem; }
+    .sr-levels { display: flex; justify-content: space-between; margin-top: 0.5rem; }
+    .sr-level { text-align: center; }
+    .sr-label { font-size: 0.75rem; color: var(--text-secondary); }
+    .sr-value { font-weight: bold; font-family: 'Space Mono', monospace; }
+    .sr-value.resistance { color: var(--danger); }
+    .sr-value.support { color: var(--success); }
+    .sr-value.pivot { color: var(--info); }
+    .volume-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+    .volume-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .volume-fill.normal { background: var(--info); }
+    .volume-fill.unusual { background: var(--warning); }
+    .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+    .loading { text-align: center; padding: 2rem; }
+    .loading::after { content: ""; display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pro-lock { text-align: center; padding: 3rem; }
+    .pro-lock h2 { margin-bottom: 1rem; }
+    .pro-lock .btn { margin-top: 1rem; }
+    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      .search-box { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="/" class="back-link">← Dashboard</a>
+      <h1>📊 Análisis Técnico</h1>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="tickerInput" placeholder="Introduce un ticker (ej: AAPL, TSLA, MSFT)" value="AAPL">
+      <button onclick="analyze()">Analizar</button>
+    </div>
+
+    <div id="content">
+      <div class="empty-state">
+        <p>Introduce un ticker para ver el análisis técnico completo</p>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem;">RSI • MACD • Bollinger • Fibonacci • Patrones de velas • Soportes/Resistencias</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('token');
+
+    async function analyze() {
+      const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+      if (!ticker) return;
+
+      const content = document.getElementById('content');
+      content.innerHTML = '<div class="loading"></div>';
+
+      if (!token) {
+        content.innerHTML = '<div class="pro-lock"><h2>🔒 Análisis Técnico Pro</h2><p>Esta función requiere un plan Pro o Premium</p><a href="/pricing" class="btn btn-primary">Ver Planes</a></div>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/analytics/technical/${ticker}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.status === 403) {
+          const data = await res.json();
+          content.innerHTML = `<div class="pro-lock"><h2>🔒 Requiere plan ${data.requiredPlan}</h2><p>Tu plan actual: ${data.currentPlan}</p><a href="/pricing" class="btn btn-primary">Mejorar Plan</a></div>`;
+          return;
+        }
+
+        if (!res.ok) throw new Error('Failed');
+
+        const data = await res.json();
+        renderAnalysis(data);
+      } catch (err) {
+        content.innerHTML = `<div class="empty-state"><p>Error al obtener datos para ${ticker}</p><p style="font-size: 0.85rem; margin-top: 0.5rem;">Verifica que el ticker es correcto</p></div>`;
+      }
+    }
+
+    function renderAnalysis(data) {
+      const { currentPrice, indicators, signal } = data;
+      const signalClass = signal.recommendation.includes('COMPRA') ? 'buy' : signal.recommendation.includes('VENTA') ? 'sell' : 'neutral';
+
+      let html = `
+        <div class="signal-card">
+          <div style="color: var(--text-secondary); font-size: 0.9rem;">${data.ticker}</div>
+          <div class="price-display">${currentPrice.toFixed(2)}€</div>
+          <div class="signal-badge ${signalClass}">${signal.recommendation}</div>
+          <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">Score: ${signal.score > 0 ? '+' : ''}${signal.score}</div>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <h3>📈 RSI & MACD</h3>
+            ${renderRSI(indicators.rsi)}
+            ${renderMACD(indicators.macd)}
+          </div>
+
+          <div class="card">
+            <h3>📊 Bandas de Bollinger</h3>
+            ${renderBollinger(indicators.bollinger, currentPrice)}
+          </div>
+
+          <div class="card">
+            <h3>📉 Medias Móviles</h3>
+            ${renderSMA(indicators.sma, currentPrice)}
+          </div>
+
+          <div class="card">
+            <h3>🎯 Fibonacci</h3>
+            ${renderFibonacci(indicators.fibonacci)}
+          </div>
+
+          <div class="card">
+            <h3>🕯️ Patrones de Velas</h3>
+            ${renderCandlestick(indicators.candlestick)}
+          </div>
+
+          <div class="card">
+            <h3>📌 Soportes y Resistencias</h3>
+            ${renderSupportResistance(indicators.supportResistance)}
+          </div>
+
+          <div class="card">
+            <h3>📦 Volumen</h3>
+            ${renderVolume(indicators.volume)}
+          </div>
+
+          <div class="card">
+            <h3>⚡ Momentum</h3>
+            ${renderMomentum(indicators.momentum)}
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🔍 Señales Detectadas</h3>
+          <ul class="signal-list">
+            ${signal.signals.map(s => `<li>${s}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function renderRSI(rsi) {
+      if (rsi === null) return '<div class="indicator"><span class="indicator-label">RSI (14)</span><span class="indicator-value neutral">N/A</span></div>';
+      const cls = rsi < 30 ? 'bullish' : rsi > 70 ? 'bearish' : 'neutral';
+      const label = rsi < 30 ? 'Sobrevendido' : rsi > 70 ? 'Sobrecomprado' : 'Neutral';
+      return `<div class="indicator"><span class="indicator-label">RSI (14)</span><span class="indicator-value ${cls}">${rsi} - ${label}</span></div>`;
+    }
+
+    function renderMACD(macd) {
+      if (!macd) return '';
+      const cls = macd.histogram > 0 ? 'bullish' : 'bearish';
+      return `
+        <div class="indicator"><span class="indicator-label">MACD</span><span class="indicator-value ${cls}">${macd.macd}</span></div>
+        <div class="indicator"><span class="indicator-label">Signal</span><span class="indicator-value">${macd.signal}</span></div>
+        <div class="indicator"><span class="indicator-label">Histograma</span><span class="indicator-value ${cls}">${macd.histogram}</span></div>
+      `;
+    }
+
+    function renderBollinger(bb, price) {
+      if (!bb) return '<p style="color: var(--text-secondary);">Datos no disponibles</p>';
+      const position = ((price - bb.lower) / (bb.upper - bb.lower) * 100).toFixed(0);
+      return `
+        <div class="indicator"><span class="indicator-label">Banda Superior</span><span class="indicator-value bearish">${bb.upper}</span></div>
+        <div class="indicator"><span class="indicator-label">Media (SMA 20)</span><span class="indicator-value neutral">${bb.middle}</span></div>
+        <div class="indicator"><span class="indicator-label">Banda Inferior</span><span class="indicator-value bullish">${bb.lower}</span></div>
+        <div class="indicator"><span class="indicator-label">Anchura</span><span class="indicator-value">${bb.bandwidth}%</span></div>
+        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">Posición: ${position}% (0=inferior, 100=superior)</div>
+      `;
+    }
+
+    function renderSMA(sma, price) {
+      let html = '';
+      if (sma.sma20) {
+        const cls = price > sma.sma20 ? 'bullish' : 'bearish';
+        html += `<div class="indicator"><span class="indicator-label">SMA 20</span><span class="indicator-value ${cls}">${sma.sma20}</span></div>`;
+      }
+      if (sma.sma50) {
+        const cls = price > sma.sma50 ? 'bullish' : 'bearish';
+        html += `<div class="indicator"><span class="indicator-label">SMA 50</span><span class="indicator-value ${cls}">${sma.sma50}</span></div>`;
+      }
+      if (sma.sma200) {
+        const cls = price > sma.sma200 ? 'bullish' : 'bearish';
+        html += `<div class="indicator"><span class="indicator-label">SMA 200</span><span class="indicator-value ${cls}">${sma.sma200}</span></div>`;
+      }
+      return html || '<p style="color: var(--text-secondary);">Datos no disponibles</p>';
+    }
+
+    function renderFibonacci(fib) {
+      if (!fib) return '<p style="color: var(--text-secondary);">Datos no disponibles</p>';
+      let html = '';
+      for (const [level, price] of Object.entries(fib.levels)) {
+        html += `<div class="fib-level"><span class="fib-pct">${level}</span><span class="fib-price">${price.toFixed(2)}€</span></div>`;
+      }
+      return html;
+    }
+
+    function renderCandlestick(patterns) {
+      if (!patterns || patterns.length === 0) return '<p style="color: var(--text-secondary);">Sin patrones detectados</p>';
+      return patterns.map(p => `<span class="pattern-tag ${p.type}">${p.name} - ${p.signal}</span>`).join('');
+    }
+
+    function renderSupportResistance(sr) {
+      if (!sr) return '<p style="color: var(--text-secondary);">Datos no disponibles</p>';
+      return `
+        <div class="sr-levels">
+          <div class="sr-level"><div class="sr-label">Resistencia</div><div class="sr-value resistance">${sr.resistance}</div></div>
+          <div class="sr-level"><div class="sr-label">Pivot</div><div class="sr-value pivot">${sr.pivot}</div></div>
+          <div class="sr-level"><div class="sr-label">Soporte</div><div class="sr-value support">${sr.support}</div></div>
+        </div>
+      `;
+    }
+
+    function renderVolume(vol) {
+      if (!vol) return '<p style="color: var(--text-secondary);">Datos no disponibles</p>';
+      const pct = Math.min(100, (vol.volumeRatio / 3) * 100);
+      const cls = vol.unusual ? 'unusual' : 'normal';
+      return `
+        <div class="indicator"><span class="indicator-label">Volumen Actual</span><span class="indicator-value">${vol.currentVolume.toLocaleString()}</span></div>
+        <div class="indicator"><span class="indicator-label">Promedio (20d)</span><span class="indicator-value">${vol.avgVolume.toLocaleString()}</span></div>
+        <div class="indicator"><span class="indicator-label">Ratio</span><span class="indicator-value ${vol.unusual ? 'bearish' : 'neutral'}">${vol.volumeRatio}x</span></div>
+        <div class="volume-bar"><div class="volume-fill ${cls}" style="width: ${pct}%"></div></div>
+        ${vol.unusual ? '<div style="color: var(--warning); font-size: 0.85rem; margin-top: 0.5rem;">⚠️ Volumen inusual detectado</div>' : ''}
+      `;
+    }
+
+    function renderMomentum(mom) {
+      if (!mom) return '<p style="color: var(--text-secondary);">Datos no disponibles</p>';
+      const cls = mom.direction === 'bullish' ? 'bullish' : 'bearish';
+      return `
+        <div class="indicator"><span class="indicator-label">Momentum (10d)</span><span class="indicator-value ${cls}">${mom.value > 0 ? '+' : ''}${mom.value}%</span></div>
+        <div class="indicator"><span class="indicator-label">Dirección</span><span class="indicator-value ${cls}">${mom.direction === 'bullish' ? '↑ Alcista' : '↓ Bajista'}</span></div>
+      `;
+    }
+
+    document.getElementById('tickerInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') analyze();
+    });
+
+    if (window.location.search.includes('ticker=')) {
+      const ticker = new URLSearchParams(window.location.search).get('ticker');
+      if (ticker) {
+        document.getElementById('tickerInput').value = ticker;
+        analyze();
+      }
+    }
+  </script>
+</body>
+</html>

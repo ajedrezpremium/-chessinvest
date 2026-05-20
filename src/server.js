@@ -15,9 +15,13 @@ const marketRoutes = require('./routes/market');
 const authRoutes = require('./routes/auth');
 const portfolioRoutes = require('./routes/portfolio');
 const analyzerRoutes = require('./routes/analyzer');
+const subscriptionRoutes = require('./routes/subscription');
+const profileRoutes = require('./routes/profile');
+const analyticsRoutes = require('./routes/analytics');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb } = require('./services/database');
+const { checkPriceAlerts } = require('./services/alertChecker');
 
 const app = express();
 
@@ -40,15 +44,30 @@ app.get('/chessinvestai', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'chessinvestai.html'));
 });
 
+app.get('/pricing', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'pricing.html'));
+});
+
+app.get('/profile', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'profile.html'));
+});
+
+app.get('/analyzer', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'analyzer.html'));
+});
+
 app.use('/api', aiRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/analyzer', analyzerRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Test endpoint
 app.get('/api/test', (_req, res) => {
-  res.json({ ok: true, routes: ['/api/markets', '/api/auth', '/api/portfolio', '/api/analyzer'] });
+  res.json({ ok: true, routes: ['/api/markets', '/api/auth', '/api/portfolio', '/api/analyzer', '/api/subscription', '/api/profile', '/api/analytics'] });
 });
 
 app.get('/health', (_req, res) => {
@@ -84,6 +103,7 @@ async function startServer() {
   }
 
   startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
+  startJob('price-alert-checker', checkPriceAlerts, 5 * 60 * 1000);
 
   let server;
 

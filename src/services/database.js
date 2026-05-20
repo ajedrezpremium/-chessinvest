@@ -38,7 +38,15 @@ async function openDb() {
 function run(sql, params = []) {
   if (!dbReady) throw new Error('Database not ready');
   db.run(sql, params);
-  return { lastID: db.getRowsModified(), changes: db.getRowsModified() };
+  const changes = db.getRowsModified();
+  let lastID = null;
+  if (sql.trim().toUpperCase().startsWith('INSERT')) {
+    const stmt = db.prepare('SELECT last_insert_rowid() as id');
+    stmt.step();
+    lastID = stmt.getAsObject().id;
+    stmt.free();
+  }
+  return { lastID, changes };
 }
 
 function get(sql, params = []) {
@@ -110,6 +118,61 @@ async function initSchema() {
       price_at_recommendation TEXT,
       generated_at TEXT DEFAULT (datetime('now'))
     )`,
+    `CREATE TABLE IF NOT EXISTS subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      plan TEXT NOT NULL DEFAULT 'free',
+      stripe_customer_id TEXT,
+      stripe_subscription_id TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      current_period_start TEXT,
+      current_period_end TEXT,
+      cancel_at TEXT,
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS price_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ticker TEXT NOT NULL,
+      target_price REAL NOT NULL,
+      direction TEXT NOT NULL CHECK(direction IN ('above', 'below')),
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      target_amount REAL NOT NULL,
+      current_amount REAL NOT NULL DEFAULT 0,
+      deadline TEXT,
+      type TEXT NOT NULL DEFAULT 'savings',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS investment_ideas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ticker TEXT NOT NULL,
+      thesis TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_settings (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      theme TEXT NOT NULL DEFAULT 'dark',
+      notifications_email INTEGER NOT NULL DEFAULT 1,
+      notifications_sms INTEGER NOT NULL DEFAULT 0,
+      language TEXT NOT NULL DEFAULT 'es',
+      timezone TEXT NOT NULL DEFAULT 'Europe/Madrid',
+      voice_enabled INTEGER NOT NULL DEFAULT 0,
+      voice_input_enabled INTEGER NOT NULL DEFAULT 0,
+      voice_rate REAL NOT NULL DEFAULT 1.0,
+      voice_pitch REAL NOT NULL DEFAULT 1.0,
+      voice_lang TEXT NOT NULL DEFAULT 'es-ES',
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`,
   ];
 
   for (const sql of tables) {
@@ -121,6 +184,10 @@ async function initSchema() {
     'CREATE INDEX IF NOT EXISTS idx_portfolio_user ON portfolio(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_rec_history_user ON recommendation_history(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_rec_history_date ON recommendation_history(generated_at)',
+    'CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_price_alerts_user ON price_alerts(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_ideas_user ON investment_ideas(user_id)',
   ];
 
   for (const sql of indexes) {

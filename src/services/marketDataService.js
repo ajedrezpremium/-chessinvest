@@ -63,7 +63,7 @@ async function fetchSingleIndex(symbol) {
   if (cached) return cached;
 
   try {
-    const quote = await yahooFinance.quote(symbol, { timeout: 8000 });
+    const quote = await yahooFinance.quote(symbol);
     if (!quote || !quote.regularMarketPrice) return null;
     const result = {
       regularMarketPrice: quote.regularMarketPrice,
@@ -87,14 +87,14 @@ async function fetchIndexHistory(symbol) {
   if (cached) return cached;
 
   try {
-    const now = new Date();
-    const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const history = await yahooFinance.chart(symbol, {
+    const now = Math.floor(Date.now() / 1000);
+    const past = now - 30 * 24 * 60 * 60;
+    const result = await yahooFinance.chart(symbol, {
       period1: past,
       period2: now,
       interval: '1d',
-    }, { timeout: 8000 });
-    const prices = (history.quotes || []).map((h) => h.close).filter(Boolean);
+    });
+    const prices = (result.quotes || []).map((h) => h.close).filter(Boolean);
     if (prices.length > 0) {
       cache.set(cacheKey, prices, CACHE_TTL_MS);
     }
