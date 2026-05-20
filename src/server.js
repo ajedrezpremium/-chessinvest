@@ -36,6 +36,10 @@ app.use(limiter);
 
 app.use(express.static(path.resolve(__dirname, 'public')));
 
+app.get('/chessinvestai', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'chessinvestai.html'));
+});
+
 app.use('/api', aiRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/auth', authRoutes);
