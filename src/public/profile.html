@@ -616,7 +616,13 @@
     });
 
     async function loadProfile() {
-      if (!token) { window.location.href = '/'; return; }
+      console.log('Profile page loading... Token:', token ? 'Present' : 'Missing');
+      
+      if (!token) {
+        console.warn('No token found. Redirecting to home.');
+        document.body.innerHTML = '<div style="padding:2rem;text-align:center"><h2>Sesión no iniciada</h2><p>Por favor, inicia sesión para ver tu perfil.</p><a href="/" class="btn btn-primary">Ir al Dashboard</a></div>';
+        return;
+      }
 
       try {
         const [summaryRes, settingsRes, subRes] = await Promise.all([
@@ -626,10 +632,217 @@
         ]);
 
         if (!summaryRes.ok) {
-          console.error('Summary failed:', summaryRes.status);
-          if (summaryRes.status === 401) { localStorage.removeItem('token'); window.location.href = '/'; }
-          return;
+          console.error('Profile summary failed:', summaryRes.status);
+          if (summaryRes.status === 401) {
+            document.body.innerHTML = '<div style="padding:2rem;text-align:center"><h2>Sesión expirada</h2><p>Tu sesión ha caducado. Por favor, inicia sesión de nuevo.</p><a href="/" class="btn btn-primary">Iniciar Sesión</a></div>';
+            localStorage.removeItem('token');
+            return;
+          }
+          throw new Error(`Server error: ${summaryRes.status}`);
         }
+
+        const summary = await summaryRes.json();
+        const settings = settingsRes.ok ? await settingsRes.json() : {};
+        const subData = subRes.ok ? await subRes.json() : {};
+        
+        currentUser = summary.user;
+        subscription = summary.subscription;
+
+        if (!currentUser) {
+          console.error('No user data in summary');
+          throw new Error('Invalid user data');
+        }
+
+        console.log('Profile data loaded for:', currentUser.username);
+
+        const plan = subscription?.plan || 'free';
+        const planNames = { free: 'Gratis', basic: 'Básico', pro: 'Pro', premium: 'Premium' };
+        const planEmojis = { free: '🆓', basic: '⭐', pro: '💎', premium: '👑' };
+
+        const avatarEl = document.getElementById('avatar');
+        if (avatarEl) {
+          avatarEl.className = `avatar ${plan}`;
+          avatarEl.textContent = (currentUser.username || '?').charAt(0).toUpperCase();
+        }
+        const planBadge = document.getElementById('planBadge');
+        if (planBadge) planBadge.textContent = planEmojis[plan];
+        const usernameEl = document.getElementById('username');
+        if (usernameEl) usernameEl.textContent = currentUser.username || 'Usuario';
+        const emailEl = document.getElementById('email');
+        if (emailEl) emailEl.textContent = currentUser.email || '';
+        const planTag = document.getElementById('planTag');
+        if (planTag) {
+          planTag.className = `plan-tag ${plan}`;
+          planTag.textContent = planNames[plan];
+        }
+        const memberEl = document.getElementById('memberSince');
+        if (memberEl && currentUser.created_at) {
+          memberEl.textContent = `Miembro desde ${new Date(currentUser.created_at).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
+        }
+
+        const profileEmailEl = document.getElementById('profileEmail');
+        if (profileEmailEl) profileEmailEl.value = currentUser.email || '';
+        const themeEl = document.getElementById('theme');
+        if (themeEl) themeEl.value = settings.theme || 'dark';
+        const langEl = document.getElementById('language');
+        if (langEl) langEl.value = settings.language || 'es';
+        const tzEl = document.getElementById('timezone');
+        if (tzEl) tzEl.value = settings.timezone || 'Europe/Madrid';
+        const notifEmailEl = document.getElementById('notifEmail');
+        if (notifEmailEl) notifEmailEl.checked = settings.notifications_email === 1;
+        const notifSmsEl = document.getElementById('notifSms');
+        if (notifSmsEl) notifSmsEl.checked = settings.notifications_sms === 1;
+
+        const currentPlanEl = document.getElementById('currentPlanDetails');
+        if (currentPlanEl) {
+          currentPlanEl.innerHTML = `
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+              <div class="avatar ${plan}" style="width:60px;height:60px;font-size:1.5rem">${planEmojis[plan]}</div>
+              <div>
+                <h4 style="margin-bottom:0.25rem">${planNames[plan]} ${planEmojis[plan]}</h4>
+                <p style="color:var(--text-secondary);font-size:0.9rem">Estado: ${subscription?.status || 'active'}</p>
+                ${subscription?.current_period_end ? `<p style="color:var(--text-secondary);font-size:0.85rem">Renovación: ${new Date(subscription.current_period_end).toLocaleDateString('es-ES')}</p>` : ''}
+              </div>
+            </div>
+            <a href="/pricing" class="btn btn-primary btn-sm">Cambiar Plan</a>
+            ${subscription?.stripe_customer_id ? `<button class="btn btn-outline btn-sm" style="margin-left:0.5rem" onclick="openBillingPortal()">Gestionar Facturación</button>` : ''}
+          `;
+        }
+
+        const limits = subData.limits || {};
+        const usageEl = document.getElementById('usageDetails');
+        if (usageEl && limits.watchlist) {
+          const usageItems = [
+            { label: 'Watchlist', current: limits.watchlist.current || 0, max: limits.watchlist.max },
+            { label: 'Portafolio', current: limits.portfolios?.current || 0, max: limits.portfolios?.max },
+            { label: 'Alertas', current: limits.alerts?.current || 0, max: limits.alerts?.max },
+            { label: 'Análisis IA/día', current: '-', max: limits.aiAnalysisPerDay === -1 ? 'Ilimitado' : limits.aiAnalysisPerDay },
+            { label: 'Recomendaciones', current: '-', max: limits.recommendations === -1 ? 'Ilimitado' : limits.recommendations },
+          ];
+          usageEl.innerHTML = usageItems.map(u => {
+            const pct = u.max === 'Ilimitado' || u.max === -1 ? 0 : (u.current / (u.max || 1)) * 100;
+            const cls = pct > 90 ? 'danger' : pct > 70 ? 'warn' : 'ok';
+            return `
+              <div class="list-item">
+                <div class="list-item-info">
+                  <div class="list-item-title">${u.label}</div>
+                  <div class="usage-bar"><div class="usage-fill ${cls}" style="width:${pct}%"></div></div>
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-secondary)">${u.current}/${u.max === -1 ? '∞' : u.max || '?'}</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const sessionEl = document.getElementById('currentSession');
+        if (sessionEl) sessionEl.textContent = `Navegador • ${new Date().toLocaleDateString('es-ES')} • IP: ***.***.***.***`;
+
+        const stats = summary.stats || {};
+        const portfolioStatsEl = document.getElementById('portfolioStats');
+        if (portfolioStatsEl) {
+          portfolioStatsEl.innerHTML = `
+            <div class="stat-card"><div class="stat-value">${stats.watchlistCount || 0}</div><div class="stat-label">Watchlist</div></div>
+            <div class="stat-card"><div class="stat-value">${stats.portfolioCount || 0}</div><div class="stat-label">Posiciones</div></div>
+            <div class="stat-card"><div class="stat-value">${stats.goalsCount || 0}</div><div class="stat-label">Objetivos</div></div>
+            <div class="stat-card"><div class="stat-value">${stats.ideasCount || 0}</div><div class="stat-label">Ideas</div></div>
+            <div class="stat-card"><div class="stat-value">${stats.activeAlerts || 0}</div><div class="stat-label">Alertas</div></div>
+          `;
+        }
+
+        const [watchlistRes, portfolioRes, goalsRes, ideasRes, alertsRes] = await Promise.all([
+          fetch(`${API}/profile/watchlist`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
+          fetch(`${API}/portfolio`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
+          fetch(`${API}/profile/goals`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
+          fetch(`${API}/profile/ideas`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
+          fetch(`${API}/profile/alerts`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
+        ]);
+
+        const watchlist = Array.isArray(watchlistRes) ? watchlistRes : [];
+        const portfolio = Array.isArray(portfolioRes) ? portfolioRes : [];
+        const goals = Array.isArray(goalsRes) ? goalsRes : [];
+        const ideas = Array.isArray(ideasRes) ? ideasRes : [];
+        const alerts = Array.isArray(alertsRes) ? alertsRes : [];
+
+        const wlEl = document.getElementById('watchlistItems');
+        if (wlEl && watchlist.length > 0) {
+          wlEl.innerHTML = watchlist.map(w => `
+            <div class="list-item">
+              <div class="list-item-info"><div class="list-item-title" style="font-family:'Space Mono',monospace;color:var(--accent)">${w.ticker}</div><div class="list-item-subtitle">Añadido ${new Date(w.added_at).toLocaleDateString('es-ES')}</div></div>
+              <button class="btn btn-danger btn-sm" onclick="deleteWatchlist('${w.ticker}')">✕</button>
+            </div>
+          `).join('');
+        }
+
+        const portEl = document.getElementById('portfolioItems');
+        if (portEl && portfolio.length > 0) {
+          portEl.innerHTML = portfolio.map(p => `
+            <div class="list-item">
+              <div class="list-item-info"><div class="list-item-title" style="font-family:'Space Mono',monospace;color:var(--accent)">${p.ticker}</div><div class="list-item-subtitle">${p.shares} acciones @ ${p.avg_price}€</div></div>
+              <button class="btn btn-danger btn-sm" onclick="deletePortfolio('${p.ticker}')">✕</button>
+            </div>
+          `).join('');
+        }
+
+        const goalsEl = document.getElementById('goalsList');
+        if (goalsEl && goals.length > 0) {
+          goalsEl.innerHTML = goals.map(g => {
+            const progress = g.target_amount > 0 ? Math.min(100, ((g.current_amount||0) / g.target_amount) * 100) : 0;
+            return `
+              <div class="goal-card">
+                <div class="goal-header">
+                  <span class="goal-title">${g.title}</span>
+                  <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})">🗑️</button>
+                </div>
+                <div class="goal-amount">${(g.current_amount||0).toLocaleString('es-ES')}€ / ${(g.target_amount||0).toLocaleString('es-ES')}€</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+                <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.5rem">${progress.toFixed(0)}% ${g.deadline ? '• ' + new Date(g.deadline).toLocaleDateString('es-ES') : ''}</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const ideasEl = document.getElementById('ideasList');
+        if (ideasEl && ideas.length > 0) {
+          ideasEl.innerHTML = ideas.map(i => `
+            <div class="idea-card">
+              <div class="idea-header">
+                <span class="idea-ticker">${i.ticker}</span>
+                <div>
+                  <span class="status-badge ${i.status}">${i.status}</span>
+                  <button class="btn btn-danger btn-sm" style="margin-left:0.5rem" onclick="deleteIdea(${i.id})">🗑️</button>
+                </div>
+              </div>
+              ${i.thesis ? `<p style="font-size:0.85rem;margin-bottom:0.5rem">${i.thesis}</p>` : ''}
+              ${i.notes ? `<p style="font-size:0.8rem;color:var(--text-secondary)">📝 ${i.notes}</p>` : ''}
+            </div>
+          `).join('');
+        }
+
+        const alertsEl = document.getElementById('alertsList');
+        if (alertsEl && alerts.length > 0) {
+          alertsEl.innerHTML = alerts.map(a => `
+            <div class="list-item">
+              <div class="list-item-info">
+                <div class="list-item-title" style="font-family:'Space Mono',monospace;color:var(--accent)">${a.ticker}</div>
+                <div class="list-item-subtitle">${a.direction === 'above' ? '↑' : '↓'} ${a.target_price}€ • Creada ${new Date(a.created_at).toLocaleDateString('es-ES')}</div>
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="deleteAlert(${a.id})">🗑️</button>
+            </div>
+          `).join('');
+        }
+
+      } catch (err) {
+        console.error('Profile load error:', err);
+        document.body.innerHTML = `
+          <div style="padding:2rem;text-align:center;max-width:600px;margin:0 auto">
+            <h2 style="color:var(--danger)">Error al cargar perfil</h2>
+            <p style="color:var(--muted);margin:1rem 0">${err.message}</p>
+            <p style="font-size:0.85rem;color:var(--muted)">Revisa la consola del navegador (F12) para más detalles.</p>
+            <a href="/" class="btn btn-primary" style="margin-top:1rem">Volver al Dashboard</a>
+          </div>
+        `;
+      }
+    }
 
         const summary = await summaryRes.json();
         const settings = settingsRes.ok ? await settingsRes.json() : {};
