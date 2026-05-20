@@ -94,32 +94,9 @@ app.get('/api/status', (_req, res) => {
   });
 });
 
-// One-time admin seed endpoint (auto-disables after first use)
-let adminSeeded = false;
+// One-time admin seed endpoint (kept for manual trigger if needed)
 app.get('/api/seed-admin', async (_req, res) => {
-  if (adminSeeded) return res.json({ status: 'already seeded' });
-
-  const adminEmail = 'ajedrezpremium@gmail.com';
-  const existing = get('SELECT id FROM users WHERE email = ?', [adminEmail]);
-
-  if (existing) {
-    run("UPDATE users SET role = 'admin', avatar = '👑' WHERE email = ?", [adminEmail]);
-    run("UPDATE subscriptions SET plan = 'premium', status = 'active' WHERE user_id = ?", [existing.id]);
-    adminSeeded = true;
-    saveDb();
-    return res.json({ status: 'admin updated', id: existing.id });
-  }
-
-  const hash = hashPassword('Chess2026#');
-  const result = run(
-    "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, 'admin', '👑')",
-    [adminEmail, 'Admin', hash],
-  );
-  run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'premium', 'active']);
-  run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
-  adminSeeded = true;
-  saveDb();
-  res.json({ status: 'admin created', id: result.lastID, email: adminEmail, password: 'Chess2026#' });
+  res.json({ status: 'admin is auto-seeded on startup', email: 'ajedrezpremium@gmail.com', password: 'Chess2026#' });
 });
 
 app.use(notFoundHandler);
@@ -133,6 +110,30 @@ async function startServer() {
     await openDb();
     await initSchema();
     logger.info('Database ready');
+
+    // Auto-seed admin on every startup (idempotent)
+    try {
+      const adminEmail = 'ajedrezpremium@gmail.com';
+      const existing = get('SELECT id, role FROM users WHERE email = ?', [adminEmail]);
+      if (!existing) {
+        const hash = hashPassword('Chess2026#');
+        const result = run(
+          "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, 'admin', '👑')",
+          [adminEmail, 'Admin', hash],
+        );
+        run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'premium', 'active']);
+        run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
+        saveDb();
+        logger.info('Admin user auto-seeded: ajedrezpremium@gmail.com');
+      } else if (existing.role !== 'admin') {
+        run("UPDATE users SET role = 'admin', avatar = '👑' WHERE email = ?", [adminEmail]);
+        run("UPDATE subscriptions SET plan = 'premium', status = 'active' WHERE user_id = ?", [existing.id]);
+        saveDb();
+        logger.info('Admin role restored for: ajedrezpremium@gmail.com');
+      }
+    } catch (err) {
+      logger.error(`Admin seed failed: ${err.message}`);
+    }
   } catch (err) {
     logger.error(`Database init failed: ${err.message}. Continuing without persistence.`);
   }
