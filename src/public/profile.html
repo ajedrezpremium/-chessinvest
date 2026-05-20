@@ -3,65 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CHESS INVEST - Perfil</title>
+  <title>CHESS INVEST - Mi Perfil</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
       --bg-primary: #0a0e17;
       --bg-secondary: #111827;
       --bg-tertiary: #1f2937;
+      --bg-card: #1a2235;
       --text-primary: #e0e0e0;
       --text-secondary: #8892a0;
       --accent: #f59e0b;
       --accent-hover: #d97706;
       --success: #10b981;
       --danger: #ef4444;
+      --info: #3b82f6;
+      --purple: #8b5cf6;
       --border: #2d3748;
     }
-    body.light {
-      --bg-primary: #f5f7fa;
-      --bg-secondary: #ffffff;
-      --bg-tertiary: #e2e8f0;
-      --text-primary: #1a202c;
-      --text-secondary: #718096;
-      --border: #cbd5e0;
-    }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
-    .header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
     .back-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
     .back-link:hover { text-decoration: underline; }
-    .avatar-container { position: relative; }
-    .avatar { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; }
+    .layout { display: grid; grid-template-columns: 300px 1fr; gap: 2rem; }
+    .sidebar { position: sticky; top: 1.5rem; height: fit-content; }
+    .profile-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; text-align: center; }
+    .avatar-wrapper { position: relative; width: 120px; height: 120px; margin: 0 auto 1rem; cursor: pointer; }
+    .avatar { width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: bold; transition: all 0.3s; }
     .avatar.free { background: #4b5563; color: #9ca3af; }
-    .avatar.basic { background: #3b82f6; color: #fff; }
-    .avatar.pro { background: #8b5cf6; color: #fff; }
-    .avatar.premium { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } }
-    .plan-badge { position: absolute; bottom: -5px; right: -5px; font-size: 1.2rem; }
-    .user-info { flex: 1; }
-    .user-info h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    .user-info p { color: var(--text-secondary); font-size: 0.9rem; }
-    .plan-tag { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; margin-top: 0.5rem; }
+    .avatar.basic { background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; }
+    .avatar.pro { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; }
+    .avatar.premium { background: linear-gradient(135deg, #f59e0b, #d97706, #b45309); color: #fff; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 50% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); } }
+    .avatar-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+    .avatar-wrapper:hover .avatar-overlay { opacity: 1; }
+    .avatar-overlay span { font-size: 0.8rem; color: #fff; }
+    .plan-badge-large { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .username { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .email { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem; }
+    .plan-tag { display: inline-block; padding: 0.35rem 1rem; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-bottom: 1rem; }
     .plan-tag.free { background: #4b5563; color: #9ca3af; }
     .plan-tag.basic { background: #3b82f6; color: #fff; }
     .plan-tag.pro { background: #8b5cf6; color: #fff; }
     .plan-tag.premium { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
-    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.5rem; }
-    .tab { padding: 0.75rem 1.25rem; border: none; background: var(--bg-secondary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; transition: all 0.2s; }
-    .tab:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    .tab.active { background: var(--accent); color: #000; font-weight: bold; }
+    .member-since { font-size: 0.75rem; color: var(--text-secondary); }
+    .sidebar-nav { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 1rem; margin-top: 1rem; }
+    .nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--text-secondary); font-size: 0.9rem; }
+    .nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .nav-item.active { background: var(--accent); color: #000; font-weight: bold; }
+    .nav-item .icon { font-size: 1.1rem; }
+    .content { min-height: 600px; }
     .section { display: none; }
     .section.active { display: block; }
-    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-    .card h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary); }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-    .stat-card { background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; text-align: center; }
-    .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
-    .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .card h3 { font-size: 1.1rem; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
     .form-group { margin-bottom: 1rem; }
+    .form-group.full { grid-column: 1 / -1; }
     .form-group label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
     .form-group textarea { min-height: 80px; resize: vertical; }
     .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: all 0.2s; }
     .btn-primary { background: var(--accent); color: #000; }
@@ -70,210 +72,410 @@
     .btn-secondary:hover { background: var(--border); }
     .btn-danger { background: var(--danger); color: #fff; }
     .btn-danger:hover { background: #dc2626; }
+    .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+    .btn-outline:hover { background: var(--accent); color: #000; }
     .btn-sm { padding: 0.5rem 1rem; font-size: 0.8rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--bg-tertiary); border-radius: 12px; padding: 1rem; text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
+    .stat-label { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
+    .plan-comparison { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1rem; }
+    .plan-col { background: var(--bg-tertiary); border-radius: 12px; padding: 1.5rem; text-align: center; border: 2px solid transparent; transition: all 0.2s; }
+    .plan-col.current { border-color: var(--accent); }
+    .plan-col.recommended { border-color: var(--purple); position: relative; }
+    .plan-col.recommended::before { content: 'RECOMENDADO'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--purple); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: bold; }
+    .plan-col h4 { margin-bottom: 0.5rem; }
+    .plan-col .price { font-size: 2rem; font-weight: bold; margin: 0.5rem 0; }
+    .plan-col .price span { font-size: 0.9rem; color: var(--text-secondary); font-weight: normal; }
+    .plan-col ul { list-style: none; text-align: left; margin: 1rem 0; }
+    .plan-col li { padding: 0.4rem 0; font-size: 0.8rem; border-bottom: 1px solid var(--border); }
+    .plan-col li:last-child { border: none; }
+    .plan-col li::before { content: "✓"; color: var(--success); margin-right: 0.5rem; }
+    .plan-col li.disabled { color: var(--text-secondary); }
+    .plan-col li.disabled::before { content: "✗"; color: var(--text-secondary); }
+    .usage-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+    .usage-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .usage-fill.ok { background: var(--success); }
+    .usage-fill.warn { background: var(--accent); }
+    .usage-fill.danger { background: var(--danger); }
     .list-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-bottom: 1px solid var(--border); }
     .list-item:last-child { border-bottom: none; }
     .list-item-info { flex: 1; }
     .list-item-title { font-weight: bold; margin-bottom: 0.25rem; }
     .list-item-subtitle { font-size: 0.8rem; color: var(--text-secondary); }
-    .list-item-actions { display: flex; gap: 0.5rem; }
-    .progress-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
-    .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
-    .status-badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-    .status-badge.pending { background: #f59e0b; color: #000; }
-    .status-badge.tracking { background: #3b82f6; color: #fff; }
-    .status-badge.executed { background: #10b981; color: #fff; }
-    .status-badge.above { background: #10b981; color: #fff; }
-    .status-badge.below { background: #ef4444; color: #fff; }
     .toggle { position: relative; width: 48px; height: 24px; }
     .toggle input { opacity: 0; width: 0; height: 0; }
     .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-tertiary); border-radius: 24px; transition: 0.3s; }
     .toggle-slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
     .toggle input:checked + .toggle-slider { background: var(--accent); }
     .toggle input:checked + .toggle-slider:before { transform: translateX(24px); }
+    .progress-bar { height: 10px; background: var(--bg-tertiary); border-radius: 5px; overflow: hidden; margin-top: 0.5rem; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 5px; transition: width 0.3s; }
+    .status-badge { padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    .status-badge.pending { background: #f59e0b; color: #000; }
+    .status-badge.tracking { background: #3b82f6; color: #fff; }
+    .status-badge.executed { background: #10b981; color: #fff; }
     .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
-    .empty-state svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5; }
-    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
     .modal.active { display: flex; }
-    .modal-content { background: var(--bg-secondary); border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-content { background: var(--bg-secondary); border-radius: 16px; padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
     .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; }
+    .avatar-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1rem 0; }
+    .avatar-option { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
+    .avatar-option:hover { transform: scale(1.1); }
+    .avatar-option.selected { border-color: var(--accent); }
     .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 1rem 2rem; border-radius: 8px; display: none; z-index: 1001; }
     .toast.error { background: var(--danger); }
+    .billing-table { width: 100%; border-collapse: collapse; }
+    .billing-table th, .billing-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    .billing-table th { color: var(--text-secondary); font-weight: normal; }
+    .investment-ideas { display: grid; gap: 1rem; }
+    .idea-card { background: var(--bg-tertiary); border-radius: 12px; padding: 1rem; }
+    .idea-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .idea-ticker { font-family: 'Space Mono', monospace; font-weight: bold; color: var(--accent); }
+    .goals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+    .goal-card { background: var(--bg-tertiary); border-radius: 12px; padding: 1rem; }
+    .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .goal-title { font-weight: bold; }
+    .goal-amount { font-size: 0.85rem; color: var(--text-secondary); }
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .plan-comparison { grid-template-columns: repeat(2, 1fr); }
+    }
     @media (max-width: 768px) {
-      .header { flex-direction: column; text-align: center; }
+      .form-grid { grid-template-columns: 1fr; }
+      .plan-comparison { grid-template-columns: 1fr; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .tabs { gap: 0.25rem; }
-      .tab { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <a href="/" class="back-link">← Dashboard</a>
-      <div class="avatar-container">
-        <div id="avatar" class="avatar free">?</div>
-        <span id="planBadge" class="plan-badge"></span>
-      </div>
-      <div class="user-info">
-        <h1 id="username">Cargando...</h1>
-        <p id="email">...</p>
-        <span id="planTag" class="plan-tag free">Gratis</span>
-      </div>
+      <a href="/" class="back-link">← Volver al Dashboard</a>
+      <h1>Mi Perfil</h1>
+      <div></div>
     </div>
 
-    <div class="tabs">
-      <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
-      <button class="tab" data-tab="settings">⚙️ Configuración</button>
-      <button class="tab" data-tab="billing">💳 Plan</button>
-      <button class="tab" data-tab="investments">📈 Inversiones</button>
-      <button class="tab" data-tab="goals">🎯 Objetivos</button>
-      <button class="tab" data-tab="ideas">💡 Ideas</button>
-      <button class="tab" data-tab="alerts">🔔 Alertas</button>
-      <button class="tab" onclick="window.location.href='/analyzer'">📊 Técnico</button>
-    </div>
-
-    <div id="dashboard" class="section active">
-      <div class="stats-grid" id="statsGrid"></div>
-      <div class="card">
-        <h3>Resumen de Actividad</h3>
-        <div id="activitySummary">Cargando...</div>
-      </div>
-    </div>
-
-    <div id="settings" class="section">
-      <div class="card">
-        <h3>Preferencias</h3>
-        <div class="form-group">
-          <label>Tema</label>
-          <select id="theme">
-            <option value="dark">Oscuro</option>
-            <option value="light">Claro</option>
-            <option value="auto">Automático</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Idioma</label>
-          <select id="language">
-            <option value="es">Español</option>
-            <option value="en">English</option>
-            <option value="fr">Français</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Zona Horaria</label>
-          <select id="timezone"></select>
-        </div>
-        <button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button>
-      </div>
-      <div class="card">
-        <h3>Notificaciones</h3>
-        <div class="list-item">
-          <div class="list-item-info">
-            <div class="list-item-title">Email</div>
-            <div class="list-item-subtitle">Recibe alertas y resúmenes por email</div>
+    <div class="layout">
+      <div class="sidebar">
+        <div class="profile-card">
+          <div class="avatar-wrapper" onclick="openModal('avatarModal')">
+            <div id="avatar" class="avatar free">?</div>
+            <div class="avatar-overlay"><span>📷 Cambiar</span></div>
           </div>
-          <label class="toggle"><input type="checkbox" id="notifEmail" checked><span class="toggle-slider"></span></label>
+          <div id="planBadge" class="plan-badge-large">🆓</div>
+          <div class="username" id="username">Cargando...</div>
+          <div class="email" id="email">...</div>
+          <div id="planTag" class="plan-tag free">Gratis</div>
+          <div class="member-since" id="memberSince">Miembro desde --</div>
         </div>
-        <div class="list-item">
-          <div class="list-item-info">
-            <div class="list-item-title">SMS</div>
-            <div class="list-item-subtitle">Alertas críticas por mensaje (Premium)</div>
+
+        <div class="sidebar-nav">
+          <div class="nav-item active" data-section="personal"><span class="icon">👤</span> Datos Personales</div>
+          <div class="nav-item" data-section="subscription"><span class="icon">💳</span> Plan de Suscripción</div>
+          <div class="nav-item" data-section="portfolio"><span class="icon">📈</span> Inversiones</div>
+          <div class="nav-item" data-section="goals"><span class="icon">🎯</span> Objetivos</div>
+          <div class="nav-item" data-section="ideas"><span class="icon">💡</span> Ideas</div>
+          <div class="nav-item" data-section="alerts"><span class="icon">🔔</span> Alertas</div>
+          <div class="nav-item" data-section="settings"><span class="icon">⚙️</span> Configuración</div>
+          <div class="nav-item" data-section="security"><span class="icon">🔒</span> Seguridad</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div id="personal" class="section active">
+          <div class="card">
+            <h3>👤 Datos Personales</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nombre</label>
+                <input type="text" id="firstName" placeholder="Tu nombre">
+              </div>
+              <div class="form-group">
+                <label>Apellidos</label>
+                <input type="text" id="lastName" placeholder="Tus apellidos">
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="profileEmail" placeholder="tu@email.com">
+              </div>
+              <div class="form-group">
+                <label>Teléfono</label>
+                <input type="tel" id="phone" placeholder="+34 600 000 000">
+              </div>
+              <div class="form-group">
+                <label>Fecha de Nacimiento</label>
+                <input type="date" id="birthDate">
+              </div>
+              <div class="form-group">
+                <label>País</label>
+                <select id="country">
+                  <option value="ES">España</option>
+                  <option value="US">Estados Unidos</option>
+                  <option value="MX">México</option>
+                  <option value="AR">Argentina</option>
+                  <option value="CO">Colombia</option>
+                  <option value="CL">Chile</option>
+                  <option value="PE">Perú</option>
+                  <option value="GB">Reino Unido</option>
+                  <option value="FR">Francia</option>
+                  <option value="DE">Alemania</option>
+                  <option value="OTHER">Otro</option>
+                </select>
+              </div>
+              <div class="form-group full">
+                <label>Perfil de Inversor</label>
+                <select id="investorProfile">
+                  <option value="conservative">Conservador - Bajo riesgo, estabilidad</option>
+                  <option value="moderate">Moderado - Equilibrio riesgo/rentabilidad</option>
+                  <option value="aggressive">Agresivo - Alto riesgo, máxima rentabilidad</option>
+                </select>
+              </div>
+              <div class="form-group full">
+                <label>Experiencia en Inversión</label>
+                <select id="experience">
+                  <option value="beginner">Principiante - Menos de 1 año</option>
+                  <option value="intermediate">Intermedio - 1-3 años</option>
+                  <option value="advanced">Avanzado - 3-5 años</option>
+                  <option value="expert">Experto - Más de 5 años</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="savePersonal()">Guardar Cambios</button>
           </div>
-          <label class="toggle"><input type="checkbox" id="notifSms"><span class="toggle-slider"></span></label>
         </div>
-      </div>
-      <div class="card">
-        <h3>🎙️ Amigo Inversor con Voz</h3>
-        <div class="list-item">
-          <div class="list-item-info">
-            <div class="list-item-title">Respuestas por voz</div>
-            <div class="list-item-subtitle">El IA lee sus respuestas en voz alta</div>
+
+        <div id="subscription" class="section">
+          <div class="card">
+            <h3>💳 Plan de Suscripción Actual</h3>
+            <div id="currentPlanDetails">Cargando...</div>
           </div>
-          <label class="toggle"><input type="checkbox" id="voiceEnabled"><span class="toggle-slider"></span></label>
-        </div>
-        <div class="list-item">
-          <div class="list-item-info">
-            <div class="list-item-title">Input por voz</div>
-            <div class="list-item-subtitle">Habla en lugar de escribir</div>
+
+          <div class="card">
+            <h3>📊 Uso de tu Plan</h3>
+            <div id="usageDetails">Cargando...</div>
           </div>
-          <label class="toggle"><input type="checkbox" id="voiceInputEnabled"><span class="toggle-slider"></span></label>
+
+          <div class="card">
+            <h3>🔄 Comparar Planes</h3>
+            <div class="plan-comparison">
+              <div class="plan-col">
+                <h4>🆓 Gratis</h4>
+                <div class="price">€0<span>/mes</span></div>
+                <ul>
+                  <li>6 índices en vivo</li>
+                  <li>1 análisis IA/día</li>
+                  <li>3 recomendaciones</li>
+                  <li>5 watchlist</li>
+                  <li class="disabled">Análisis técnico</li>
+                  <li class="disabled">Alertas de precio</li>
+                  <li class="disabled">Amigo Inversor voz</li>
+                  <li class="disabled">Soporte prioritario</li>
+                </ul>
+                <button class="btn btn-secondary btn-sm" disabled>Plan Actual</button>
+              </div>
+              <div class="plan-col">
+                <h4>⭐ Básico</h4>
+                <div class="price">€4,99<span>/mes</span></div>
+                <ul>
+                  <li>12 índices en vivo</li>
+                  <li>5 análisis IA/día</li>
+                  <li>10 recomendaciones</li>
+                  <li>25 watchlist</li>
+                  <li>3 alertas de precio</li>
+                  <li class="disabled">Análisis técnico</li>
+                  <li class="disabled">Amigo Inversor voz</li>
+                  <li class="disabled">Soporte prioritario</li>
+                </ul>
+                <button class="btn btn-primary btn-sm" onclick="subscribe('basic')">Elegir</button>
+              </div>
+              <div class="plan-col recommended">
+                <h4>💎 Pro</h4>
+                <div class="price">€14,99<span>/mes</span></div>
+                <ul>
+                  <li>30+ índices en vivo</li>
+                  <li>Análisis IA ilimitado</li>
+                  <li>Recomendaciones ilimitadas</li>
+                  <li>Watchlist ilimitada</li>
+                  <li>15 alertas de precio</li>
+                  <li>Análisis técnico completo</li>
+                  <li class="disabled">Amigo Inversor voz</li>
+                  <li>Soporte chat</li>
+                </ul>
+                <button class="btn btn-primary btn-sm" onclick="subscribe('pro')">Elegir</button>
+              </div>
+              <div class="plan-col">
+                <h4>👑 Premium</h4>
+                <div class="price">€49,99<span>/mes</span></div>
+                <ul>
+                  <li>50+ índices + cripto</li>
+                  <li>IA ilimitada + prioridad</li>
+                  <li>Todo ilimitado</li>
+                  <li>Alertas SMS</li>
+                  <li>API access</li>
+                  <li>Análisis técnico avanzado</li>
+                  <li>Amigo Inversor con voz</li>
+                  <li>Soporte telefónico</li>
+                </ul>
+                <button class="btn btn-primary btn-sm" onclick="subscribe('premium')">Elegir</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📄 Historial de Facturación</h3>
+            <div id="billingHistory">
+              <table class="billing-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Concepto</th>
+                    <th>Importe</th>
+                    <th>Estado</th>
+                    <th>Factura</th>
+                  </tr>
+                </thead>
+                <tbody id="billingTableBody">
+                  <tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Sin facturas disponibles</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div class="form-group" style="margin-top:1rem">
-          <label>Velocidad de voz</label>
-          <input type="range" id="voiceRate" min="0.5" max="2" step="0.1" value="1" style="width:100%">
+
+        <div id="portfolio" class="section">
+          <div class="stats-grid" id="portfolioStats"></div>
+          <div class="card">
+            <h3>📋 Mi Cartera</h3>
+            <div id="portfolioItems"><div class="empty-state">Sin posiciones en cartera</div></div>
+          </div>
+          <div class="card">
+            <h3>👁️ Watchlist</h3>
+            <div id="watchlistItems"><div class="empty-state">Sin tickers en watchlist</div></div>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Tono de voz</label>
-          <input type="range" id="voicePitch" min="0.5" max="2" step="0.1" value="1" style="width:100%">
+
+        <div id="goals" class="section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <h3>🎯 Objetivos de Inversión</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('goalModal')">+ Nuevo Objetivo</button>
+          </div>
+          <div class="goals-grid" id="goalsList"><div class="empty-state">Sin objetivos creados</div></div>
         </div>
-        <div class="form-group">
-          <label>Idioma de voz</label>
-          <select id="voiceLang">
-            <option value="es-ES">Español</option>
-            <option value="en-US">English</option>
-            <option value="fr-FR">Français</option>
-          </select>
+
+        <div id="ideas" class="section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <h3>💡 Ideas de Inversión</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('ideaModal')">+ Nueva Idea</button>
+          </div>
+          <div class="investment-ideas" id="ideasList"><div class="empty-state">Sin ideas guardadas</div></div>
+        </div>
+
+        <div id="alerts" class="section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <h3>🔔 Alertas de Precio</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('alertModal')">+ Nueva Alerta</button>
+          </div>
+          <div id="alertsList"><div class="empty-state">Sin alertas configuradas</div></div>
+        </div>
+
+        <div id="settings" class="section">
+          <div class="card">
+            <h3>⚙️ Preferencias</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Tema</label>
+                <select id="theme">
+                  <option value="dark">Oscuro</option>
+                  <option value="light">Claro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Idioma</label>
+                <select id="language">
+                  <option value="es">Español</option>
+                  <option value="en">English</option>
+                  <option value="fr">Français</option>
+                </select>
+              </div>
+              <div class="form-group full">
+                <label>Zona Horaria</label>
+                <select id="timezone"></select>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveSettings()">Guardar</button>
+          </div>
+          <div class="card">
+            <h3>🔔 Notificaciones</h3>
+            <div class="list-item">
+              <div class="list-item-info"><div class="list-item-title">Email</div><div class="list-item-subtitle">Alertas y resúmenes por email</div></div>
+              <label class="toggle"><input type="checkbox" id="notifEmail" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="list-item">
+              <div class="list-item-info"><div class="list-item-title">SMS</div><div class="list-item-subtitle">Alertas críticas por mensaje (Premium)</div></div>
+              <label class="toggle"><input type="checkbox" id="notifSms"><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <div id="security" class="section">
+          <div class="card">
+            <h3>🔒 Cambiar Contraseña</h3>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Contraseña Actual</label>
+                <input type="password" id="currentPassword">
+              </div>
+              <div class="form-group">
+                <label>Nueva Contraseña</label>
+                <input type="password" id="newPassword">
+              </div>
+              <div class="form-group">
+                <label>Confirmar Contraseña</label>
+                <input type="password" id="confirmPassword">
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="changePassword()">Cambiar Contraseña</button>
+          </div>
+          <div class="card">
+            <h3>📱 Sesiones Activas</h3>
+            <div class="list-item">
+              <div class="list-item-info">
+                <div class="list-item-title">🖥️ Sesión Actual</div>
+                <div class="list-item-subtitle" id="currentSession">Cargando...</div>
+              </div>
+              <span class="status-badge executed">Activa</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>⚠️ Zona de Peligro</h3>
+            <p style="color:var(--text-secondary);margin-bottom:1rem;font-size:0.9rem">Estas acciones son irreversibles. Procede con precaución.</p>
+            <button class="btn btn-danger" onclick="if(confirm('¿Estás seguro? Se eliminarán todos tus datos.'))showToast('Función deshabilitada en demo',true)">Eliminar Cuenta</button>
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <div id="billing" class="section">
-      <div class="card">
-        <h3>Plan Actual</h3>
-        <div id="currentPlanInfo">Cargando...</div>
-        <div style="margin-top: 1rem;">
-          <a href="/pricing" class="btn btn-primary">Cambiar Plan</a>
-          <button id="manageBillingBtn" class="btn btn-secondary" style="display: none; margin-left: 0.5rem;">Gestionar Facturación</button>
-        </div>
+  <div id="avatarModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📷 Elegir Avatar</h3>
+        <button class="modal-close" onclick="closeModal('avatarModal')">&times;</button>
       </div>
-      <div class="card">
-        <h3>Uso de Límites</h3>
-        <div id="limitsUsage">Cargando...</div>
-      </div>
-    </div>
-
-    <div id="investments" class="section">
-      <div class="card">
-        <h3>Watchlist</h3>
-        <div id="watchlistItems"><div class="empty-state">Sin tickers en watchlist</div></div>
-      </div>
-      <div class="card">
-        <h3>Portafolio</h3>
-        <div id="portfolioItems"><div class="empty-state">Sin posiciones en portafolio</div></div>
-      </div>
-    </div>
-
-    <div id="goals" class="section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Mis Objetivos</h3>
-        <button class="btn btn-primary btn-sm" onclick="openModal('goalModal')">+ Nuevo Objetivo</button>
-      </div>
-      <div id="goalsList"><div class="empty-state">Sin objetivos creados</div></div>
-    </div>
-
-    <div id="ideas" class="section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Ideas de Inversión</h3>
-        <button class="btn btn-primary btn-sm" onclick="openModal('ideaModal')">+ Nueva Idea</button>
-      </div>
-      <div id="ideasList"><div class="empty-state">Sin ideas guardadas</div></div>
-    </div>
-
-    <div id="alerts" class="section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Alertas de Precio</h3>
-        <button class="btn btn-primary btn-sm" onclick="openModal('alertModal')">+ Nueva Alerta</button>
-      </div>
-      <div id="alertsList"><div class="empty-state">Sin alertas configuradas</div></div>
+      <p style="color:var(--text-secondary);margin-bottom:1rem;font-size:0.9rem">Selecciona un avatar para tu perfil:</p>
+      <div class="avatar-picker" id="avatarPicker"></div>
+      <button class="btn btn-primary" onclick="saveAvatar()">Guardar Avatar</button>
     </div>
   </div>
 
   <div id="goalModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Nuevo Objetivo</h3>
+        <h3>🎯 Nuevo Objetivo</h3>
         <button class="modal-close" onclick="closeModal('goalModal')">&times;</button>
       </div>
       <div class="form-group">
@@ -308,7 +510,7 @@
   <div id="ideaModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Nueva Idea de Inversión</h3>
+        <h3>💡 Nueva Idea de Inversión</h3>
         <button class="modal-close" onclick="closeModal('ideaModal')">&times;</button>
       </div>
       <div class="form-group">
@@ -338,7 +540,7 @@
   <div id="alertModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Nueva Alerta de Precio</h3>
+        <h3>🔔 Nueva Alerta de Precio</h3>
         <button class="modal-close" onclick="closeModal('alertModal')">&times;</button>
       </div>
       <div class="form-group">
@@ -367,6 +569,9 @@
     let token = localStorage.getItem('token');
     let currentUser = null;
     let subscription = null;
+    let selectedAvatar = null;
+
+    const avatars = ['♔', '♕', '♖', '♗', '♘', '♙', '👤', '💼', '📊', '🎯', '💡', '🔔'];
 
     function showToast(message, isError = false) {
       const toast = document.getElementById('toast');
@@ -379,12 +584,12 @@
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab).classList.add('active');
+        item.classList.add('active');
+        document.getElementById(item.dataset.section).classList.add('active');
       });
     });
 
@@ -397,102 +602,108 @@
       tzSelect.appendChild(opt);
     });
 
+    const picker = document.getElementById('avatarPicker');
+    avatars.forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'avatar-option';
+      div.textContent = a;
+      div.onclick = () => {
+        document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedAvatar = a;
+      };
+      picker.appendChild(div);
+    });
+
     async function loadProfile() {
       if (!token) { window.location.href = '/'; return; }
 
       try {
-        const [summaryRes, settingsRes] = await Promise.all([
+        const [summaryRes, settingsRes, subRes] = await Promise.all([
           fetch(`${API}/profile/summary`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API}/profile/settings`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/subscription/status`, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
-        if (!summaryRes.ok || !settingsRes.ok) throw new Error('Failed to load profile');
+        if (!summaryRes.ok) throw new Error('Failed');
 
         const summary = await summaryRes.json();
         const settings = await settingsRes.json();
+        const subData = await subRes.json();
         currentUser = summary.user;
         subscription = summary.subscription;
-
-        document.getElementById('username').textContent = currentUser.username;
-        document.getElementById('email').textContent = currentUser.email;
 
         const plan = subscription?.plan || 'free';
         const planNames = { free: 'Gratis', basic: 'Básico', pro: 'Pro', premium: 'Premium' };
         const planEmojis = { free: '🆓', basic: '⭐', pro: '💎', premium: '👑' };
-        const avatar = document.getElementById('avatar');
-        avatar.className = `avatar ${plan}`;
-        avatar.textContent = currentUser.username.charAt(0).toUpperCase();
+
+        const avatarEl = document.getElementById('avatar');
+        avatarEl.className = `avatar ${plan}`;
+        avatarEl.textContent = currentUser.username.charAt(0).toUpperCase();
         document.getElementById('planBadge').textContent = planEmojis[plan];
+        document.getElementById('username').textContent = currentUser.username;
+        document.getElementById('email').textContent = currentUser.email;
         const planTag = document.getElementById('planTag');
         planTag.className = `plan-tag ${plan}`;
         planTag.textContent = planNames[plan];
+        document.getElementById('memberSince').textContent = `Miembro desde ${new Date(currentUser.created_at).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
 
+        document.getElementById('profileEmail').value = currentUser.email;
         document.getElementById('theme').value = settings.theme || 'dark';
         document.getElementById('language').value = settings.language || 'es';
         document.getElementById('timezone').value = settings.timezone || 'Europe/Madrid';
         document.getElementById('notifEmail').checked = settings.notifications_email === 1;
         document.getElementById('notifSms').checked = settings.notifications_sms === 1;
-        document.getElementById('voiceEnabled').checked = settings.voice_enabled === 1;
-        document.getElementById('voiceInputEnabled').checked = settings.voice_input_enabled === 1;
-        document.getElementById('voiceRate').value = settings.voice_rate || 1;
-        document.getElementById('voicePitch').value = settings.voice_pitch || 1;
-        document.getElementById('voiceLang').value = settings.voice_lang || 'es-ES';
 
-        if (document.getElementById('theme').value === 'light') document.body.classList.add('light');
+        document.getElementById('currentPlanDetails').innerHTML = `
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+            <div class="avatar ${plan}" style="width:60px;height:60px;font-size:1.5rem">${planEmojis[plan]}</div>
+            <div>
+              <h4 style="margin-bottom:0.25rem">${planNames[plan]} ${planEmojis[plan]}</h4>
+              <p style="color:var(--text-secondary);font-size:0.9rem">Estado: ${subscription?.status || 'active'}</p>
+              ${subscription?.current_period_end ? `<p style="color:var(--text-secondary);font-size:0.85rem">Renovación: ${new Date(subscription.current_period_end).toLocaleDateString('es-ES')}</p>` : ''}
+            </div>
+          </div>
+          <a href="/pricing" class="btn btn-primary btn-sm">Cambiar Plan</a>
+          ${subscription?.stripe_customer_id ? `<button class="btn btn-outline btn-sm" style="margin-left:0.5rem" onclick="openBillingPortal()">Gestionar Facturación</button>` : ''}
+        `;
+
+        const limits = subData.limits;
+        const usageItems = [
+          { label: 'Watchlist', current: limits.watchlist.current, max: limits.watchlist.max },
+          { label: 'Portafolio', current: limits.portfolios.current, max: limits.portfolios.max },
+          { label: 'Alertas', current: limits.alerts.current, max: limits.alerts.max },
+          { label: 'Análisis IA/día', current: '-', max: limits.aiAnalysisPerDay === -1 ? 'Ilimitado' : limits.aiAnalysisPerDay },
+          { label: 'Recomendaciones', current: '-', max: limits.recommendations === -1 ? 'Ilimitado' : limits.recommendations },
+        ];
+        document.getElementById('usageDetails').innerHTML = usageItems.map(u => {
+          const pct = u.max === 'Ilimitado' || u.max === -1 ? 0 : (u.current / u.max) * 100;
+          const cls = pct > 90 ? 'danger' : pct > 70 ? 'warn' : 'ok';
+          return `
+            <div class="list-item">
+              <div class="list-item-info">
+                <div class="list-item-title">${u.label}</div>
+                <div class="usage-bar"><div class="usage-fill ${cls}" style="width:${pct}%"></div></div>
+              </div>
+              <div style="font-size:0.85rem;color:var(--text-secondary)">${u.current}/${u.max === -1 ? '∞' : u.max}</div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('currentSession').textContent = `Navegador • ${new Date().toLocaleDateString('es-ES')} • IP: ***.***.***.***`;
 
         const stats = summary.stats;
-        document.getElementById('statsGrid').innerHTML = `
+        document.getElementById('portfolioStats').innerHTML = `
           <div class="stat-card"><div class="stat-value">${stats.watchlistCount}</div><div class="stat-label">Watchlist</div></div>
-          <div class="stat-card"><div class="stat-value">${stats.portfolioCount}</div><div class="stat-label">Portafolio</div></div>
+          <div class="stat-card"><div class="stat-value">${stats.portfolioCount}</div><div class="stat-label">Posiciones</div></div>
           <div class="stat-card"><div class="stat-value">${stats.goalsCount}</div><div class="stat-label">Objetivos</div></div>
           <div class="stat-card"><div class="stat-value">${stats.ideasCount}</div><div class="stat-label">Ideas</div></div>
           <div class="stat-card"><div class="stat-value">${stats.activeAlerts}</div><div class="stat-label">Alertas</div></div>
         `;
 
-        document.getElementById('currentPlanInfo').innerHTML = `
-          <p><strong>Plan:</strong> ${planNames[plan]} ${planEmojis[plan]}</p>
-          <p><strong>Estado:</strong> ${subscription?.status || 'active'}</p>
-          ${subscription?.current_period_end ? `<p><strong>Renovación:</strong> ${new Date(subscription.current_period_end).toLocaleDateString('es-ES')}</p>` : ''}
-          ${subscription?.cancel_at ? `<p><strong>Cancela el:</strong> ${new Date(subscription.cancel_at).toLocaleDateString('es-ES')}</p>` : ''}
-        `;
-
-        if (subscription?.stripe_customer_id) {
-          document.getElementById('manageBillingBtn').style.display = 'inline-block';
-          document.getElementById('manageBillingBtn').onclick = async () => {
-            const res = await fetch(`${API}/subscription/billing-portal`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            });
-            const data = await res.json();
-            if (data.url) window.open(data.url, '_blank');
-          };
-        }
-
-        const subRes = await fetch(`${API}/subscription/status`, { headers: { Authorization: `Bearer ${token}` } });
-        const subData = await subRes.json();
-        const limits = subData.limits;
-        document.getElementById('limitsUsage').innerHTML = `
-          <div class="list-item">
-            <div class="list-item-info"><div class="list-item-title">Watchlist</div></div>
-            <div>${limits.watchlist.current}/${limits.watchlist.max === -1 ? '∞' : limits.watchlist.max}</div>
-          </div>
-          <div class="list-item">
-            <div class="list-item-info"><div class="list-item-title">Portafolio</div></div>
-            <div>${limits.portfolios.current}/${limits.portfolios.max === -1 ? '∞' : limits.portfolios.max}</div>
-          </div>
-          <div class="list-item">
-            <div class="list-item-info"><div class="list-item-title">Alertas</div></div>
-            <div>${limits.alerts.current}/${limits.alerts.max === -1 ? '∞' : limits.alerts.max}</div>
-          </div>
-          <div class="list-item">
-            <div class="list-item-info"><div class="list-item-title">Análisis IA/día</div></div>
-            <div>${limits.aiAnalysisPerDay === -1 ? 'Ilimitado' : limits.aiAnalysisPerDay}</div>
-          </div>
-        `;
-
         const [watchlistRes, portfolioRes, goalsRes, ideasRes, alertsRes] = await Promise.all([
-          fetch(`${API}/profile/watchlist`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ json: () => [] })),
-          fetch(`${API}/portfolio`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ json: () => [] })),
+          fetch(`${API}/profile/watchlist`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/portfolio`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API}/profile/goals`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API}/profile/ideas`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API}/profile/alerts`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -507,7 +718,8 @@
         if (watchlist.length > 0) {
           document.getElementById('watchlistItems').innerHTML = watchlist.map(w => `
             <div class="list-item">
-              <div class="list-item-info"><div class="list-item-title">${w.ticker}</div><div class="list-item-subtitle">Añadido ${new Date(w.added_at).toLocaleDateString('es-ES')}</div></div>
+              <div class="list-item-info"><div class="list-item-title" style="font-family:'Space Mono',monospace;color:var(--accent)">${w.ticker}</div><div class="list-item-subtitle">Añadido ${new Date(w.added_at).toLocaleDateString('es-ES')}</div></div>
+              <button class="btn btn-danger btn-sm" onclick="deleteWatchlist('${w.ticker}')">✕</button>
             </div>
           `).join('');
         }
@@ -515,7 +727,8 @@
         if (portfolio.length > 0) {
           document.getElementById('portfolioItems').innerHTML = portfolio.map(p => `
             <div class="list-item">
-              <div class="list-item-info"><div class="list-item-title">${p.ticker}</div><div class="list-item-subtitle">${p.shares} shares @ ${p.avg_price}€</div></div>
+              <div class="list-item-info"><div class="list-item-title" style="font-family:'Space Mono',monospace;color:var(--accent)">${p.ticker}</div><div class="list-item-subtitle">${p.shares} acciones @ ${p.avg_price}€</div></div>
+              <button class="btn btn-danger btn-sm" onclick="deletePortfolio('${p.ticker}')">✕</button>
             </div>
           `).join('');
         }
@@ -524,19 +737,14 @@
           document.getElementById('goalsList').innerHTML = goals.map(g => {
             const progress = g.target_amount > 0 ? Math.min(100, (g.current_amount / g.target_amount) * 100) : 0;
             return `
-              <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                  <div>
-                    <h4>${g.title}</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem;">${g.current_amount.toLocaleString('es-ES')}€ / ${g.target_amount.toLocaleString('es-ES')}€</p>
-                  </div>
-                  <div class="list-item-actions">
-                    <button class="btn btn-secondary btn-sm" onclick="editGoal(${g.id})">✏️</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})">🗑️</button>
-                  </div>
+              <div class="goal-card">
+                <div class="goal-header">
+                  <span class="goal-title">${g.title}</span>
+                  <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})">🗑️</button>
                 </div>
-                <div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">${progress.toFixed(0)}% completado ${g.deadline ? ' • Fecha: ' + new Date(g.deadline).toLocaleDateString('es-ES') : ''}</p>
+                <div class="goal-amount">${g.current_amount.toLocaleString('es-ES')}€ / ${g.target_amount.toLocaleString('es-ES')}€</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+                <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.5rem">${progress.toFixed(0)}% ${g.deadline ? '• ' + new Date(g.deadline).toLocaleDateString('es-ES') : ''}</div>
               </div>
             `;
           }).join('');
@@ -544,18 +752,16 @@
 
         if (ideas.length > 0) {
           document.getElementById('ideasList').innerHTML = ideas.map(i => `
-            <div class="card">
-              <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div class="idea-card">
+              <div class="idea-header">
+                <span class="idea-ticker">${i.ticker}</span>
                 <div>
-                  <h4>${i.ticker} <span class="status-badge ${i.status}">${i.status}</span></h4>
-                  ${i.thesis ? `<p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">${i.thesis}</p>` : ''}
-                  ${i.notes ? `<p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">📝 ${i.notes}</p>` : ''}
-                </div>
-                <div class="list-item-actions">
-                  <button class="btn btn-secondary btn-sm" onclick="editIdea(${i.id})">✏️</button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteIdea(${i.id})">🗑️</button>
+                  <span class="status-badge ${i.status}">${i.status}</span>
+                  <button class="btn btn-danger btn-sm" style="margin-left:0.5rem" onclick="deleteIdea(${i.id})">🗑️</button>
                 </div>
               </div>
+              ${i.thesis ? `<p style="font-size:0.85rem;margin-bottom:0.5rem">${i.thesis}</p>` : ''}
+              ${i.notes ? `<p style="font-size:0.8rem;color:var(--text-secondary)">📝 ${i.notes}</p>` : ''}
             </div>
           `).join('');
         }
@@ -564,12 +770,10 @@
           document.getElementById('alertsList').innerHTML = alerts.map(a => `
             <div class="list-item">
               <div class="list-item-info">
-                <div class="list-item-title">${a.ticker} <span class="status-badge ${a.direction}">${a.direction === 'above' ? '↑' : '↓'} ${a.target_price}€</span></div>
-                <div class="list-item-subtitle">Creada ${new Date(a.created_at).toLocaleDateString('es-ES')}</div>
+                <div class="list-item-title" style="font-family:'Space Mono',monospace;color:var(--accent)">${a.ticker}</div>
+                <div class="list-item-subtitle">${a.direction === 'above' ? '↑' : '↓'} ${a.target_price}€ • Creada ${new Date(a.created_at).toLocaleDateString('es-ES')}</div>
               </div>
-              <div class="list-item-actions">
-                <button class="btn btn-danger btn-sm" onclick="deleteAlert(${a.id})">🗑️</button>
-              </div>
+              <button class="btn btn-danger btn-sm" onclick="deleteAlert(${a.id})">🗑️</button>
             </div>
           `).join('');
         }
@@ -577,6 +781,28 @@
       } catch (err) {
         console.error('Failed to load profile:', err);
         showToast('Error al cargar perfil', true);
+      }
+    }
+
+    async function savePersonal() {
+      try {
+        const res = await fetch(`${API}/profile/personal`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            first_name: document.getElementById('firstName').value,
+            last_name: document.getElementById('lastName').value,
+            phone: document.getElementById('phone').value,
+            birth_date: document.getElementById('birthDate').value,
+            country: document.getElementById('country').value,
+            investor_profile: document.getElementById('investorProfile').value,
+            experience: document.getElementById('experience').value,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        showToast('Datos personales guardados');
+      } catch (err) {
+        showToast('Error al guardar datos', true);
       }
     }
 
@@ -591,25 +817,63 @@
             timezone: document.getElementById('timezone').value,
             notifications_email: document.getElementById('notifEmail').checked ? 1 : 0,
             notifications_sms: document.getElementById('notifSms').checked ? 1 : 0,
-            voice_enabled: document.getElementById('voiceEnabled').checked ? 1 : 0,
-            voice_input_enabled: document.getElementById('voiceInputEnabled').checked ? 1 : 0,
-            voice_rate: parseFloat(document.getElementById('voiceRate').value),
-            voice_pitch: parseFloat(document.getElementById('voicePitch').value),
-            voice_lang: document.getElementById('voiceLang').value,
           }),
         });
         if (!res.ok) throw new Error('Failed');
         showToast('Configuración guardada');
-        if (document.getElementById('theme').value === 'light') document.body.classList.add('light');
-        else document.body.classList.remove('light');
       } catch (err) {
         showToast('Error al guardar configuración', true);
       }
     }
 
+    async function saveAvatar() {
+      if (!selectedAvatar) { showToast('Selecciona un avatar', true); return; }
+      try {
+        const res = await fetch(`${API}/profile/avatar`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar: selectedAvatar }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        document.getElementById('avatar').textContent = selectedAvatar;
+        closeModal('avatarModal');
+        showToast('Avatar actualizado');
+      } catch (err) {
+        showToast('Error al guardar avatar', true);
+      }
+    }
+
+    async function subscribe(plan) {
+      try {
+        const res = await fetch(`${API}/subscription/checkout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error', true); return; }
+        window.location.href = data.url;
+      } catch (err) {
+        showToast('Error de conexión', true);
+      }
+    }
+
+    async function openBillingPortal() {
+      try {
+        const res = await fetch(`${API}/subscription/billing-portal`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        if (data.url) window.open(data.url, '_blank');
+      } catch (err) {
+        showToast('Error al abrir portal', true);
+      }
+    }
+
     async function createGoal() {
       try {
-        const res = await fetch(`${API}/profile/goals`, {
+        await fetch(`${API}/profile/goals`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -620,7 +884,6 @@
             type: document.getElementById('goalType').value,
           }),
         });
-        if (!res.ok) throw new Error('Failed');
         showToast('Objetivo creado');
         closeModal('goalModal');
         loadProfile();
@@ -631,7 +894,7 @@
 
     async function createIdea() {
       try {
-        const res = await fetch(`${API}/profile/ideas`, {
+        await fetch(`${API}/profile/ideas`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -641,7 +904,6 @@
             status: document.getElementById('ideaStatus').value,
           }),
         });
-        if (!res.ok) throw new Error('Failed');
         showToast('Idea guardada');
         closeModal('ideaModal');
         loadProfile();
@@ -652,7 +914,7 @@
 
     async function createAlert() {
       try {
-        const res = await fetch(`${API}/profile/alerts`, {
+        await fetch(`${API}/profile/alerts`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -661,7 +923,6 @@
             direction: document.getElementById('alertDirection').value,
           }),
         });
-        if (!res.ok) throw new Error('Failed');
         showToast('Alerta creada');
         closeModal('alertModal');
         loadProfile();
@@ -691,8 +952,42 @@
       loadProfile();
     }
 
-    function editGoal(id) { showToast('Edición de objetivos próximamente'); }
-    function editIdea(id) { showToast('Edición de ideas próximamente'); }
+    async function deleteWatchlist(ticker) {
+      if (!confirm(`¿Eliminar ${ticker} de watchlist?`)) return;
+      await fetch(`${API}/portfolio/watchlist/${ticker}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      showToast('Eliminado de watchlist');
+      loadProfile();
+    }
+
+    async function deletePortfolio(ticker) {
+      if (!confirm(`¿Eliminar ${ticker} del portafolio?`)) return;
+      await fetch(`${API}/portfolio/${ticker}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      showToast('Eliminado del portafolio');
+      loadProfile();
+    }
+
+    async function changePassword() {
+      const current = document.getElementById('currentPassword').value;
+      const newP = document.getElementById('newPassword').value;
+      const confirm = document.getElementById('confirmPassword').value;
+      if (!current || !newP || !confirm) { showToast('Completa todos los campos', true); return; }
+      if (newP !== confirm) { showToast('Las contraseñas no coinciden', true); return; }
+      if (newP.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres', true); return; }
+      try {
+        const res = await fetch(`${API}/profile/password`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ current_password: current, new_password: newP }),
+        });
+        if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error', true); return; }
+        showToast('Contraseña cambiada correctamente');
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+      } catch (err) {
+        showToast('Error al cambiar contraseña', true);
+      }
+    }
 
     document.querySelectorAll('.modal').forEach(modal => {
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });

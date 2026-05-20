@@ -179,6 +179,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .profile-badge{position:absolute;bottom:-2px;right:-2px;font-size:10px;background:var(--bg2);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
 .floating-icon{position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#000;box-shadow:0 4px 20px rgba(0,212,255,0.4);cursor:pointer;transition:all 0.3s;z-index:999;text-decoration:none}
 .floating-icon:hover{transform:scale(1.1);box-shadow:0 6px 30px rgba(0,212,255,0.6)}
+#subscription-sidebar{animation:slideIn 0.3s ease-out}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 </style>
 
 <div class="app">
@@ -191,7 +193,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <span class="profile-avatar" id="profile-avatar">?</span>
     <span class="profile-badge" id="profile-badge"></span>
   </a>
-  <button class="auth-btn" onclick="logout()" style="margin-left:8px">Salir</button>
+  <button class="auth-btn" onclick="toggleSubscriptionSidebar()" title="Plan de Suscripción" style="margin-left:8px">💳 Plan</button>
+  <button class="auth-btn" onclick="logout()" style="margin-left:4px">Salir</button>
 </div>
     <button class="auth-btn" id="login-btn" onclick="showAuthModal()">Ingresar</button>
   </div>
@@ -222,6 +225,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <div class="main">
+
+<!-- PLAN DE SUSCRIPCIÓN (Sidebar derecha) -->
+<div id="subscription-sidebar" style="display:none;position:fixed;right:20px;top:80px;width:280px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.25rem;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <h4 style="font-size:0.9rem;color:var(--accent)">💳 Mi Plan</h4>
+    <button onclick="document.getElementById('subscription-sidebar').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem">&times;</button>
+  </div>
+  <div id="sidebar-plan-content">Cargando...</div>
+</div>
 
 <!-- MERCADOS -->
 <div class="section active" id="sec-markets">
@@ -883,7 +895,49 @@ async function checkAuth(){
     currentUser=data;
     updateUserUI();
     renderPortfolio();
+    loadSubscriptionSidebar();
   }catch{clearToken();}
+}
+
+async function toggleSubscriptionSidebar(){
+  const sidebar=document.getElementById('subscription-sidebar');
+  if(sidebar.style.display==='none'){
+    sidebar.style.display='block';
+    await loadSubscriptionSidebar();
+  }else{
+    sidebar.style.display='none';
+  }
+}
+
+async function loadSubscriptionSidebar(){
+  try{
+    const res=await apiFetch('/api/subscription/status');
+    const planNames={free:'Gratis',basic:'Básico',pro:'Pro',premium:'Premium'};
+    const planEmojis={free:'🆓',basic:'⭐',pro:'💎',premium:'👑'};
+    const planColors={free:'#4b5563',basic:'#3b82f6',pro:'#8b5cf6',premium:'#f59e0b'};
+    const plan=res.plan||'free';
+    const limits=res.limits||{};
+
+    document.getElementById('sidebar-plan-content').innerHTML=`
+      <div style="text-align:center;margin-bottom:1rem">
+        <div style="font-size:2rem;margin-bottom:0.25rem">${planEmojis[plan]}</div>
+        <div style="font-weight:bold;color:${planColors[plan]}">${planNames[plan]}</div>
+        ${res.currentPeriodEnd?`<div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">Renovación: ${new Date(res.currentPeriodEnd).toLocaleDateString('es-ES')}</div>`:''}
+      </div>
+      <div style="margin-bottom:1rem">
+        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem">Uso del Plan</div>
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:0.25rem"><span>Watchlist</span><span>${limits.watchlist?.current||0}/${limits.watchlist?.max===-1?'∞':limits.watchlist?.max||5}</span></div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:0.5rem"><div style="height:100%;width:${(limits.watchlist?.current||0)/(limits.watchlist?.max===-1?100:limits.watchlist?.max||5)*100}%;background:var(--accent);border-radius:2px"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:0.25rem"><span>Alertas</span><span>${limits.alerts?.current||0}/${limits.alerts?.max===-1?'∞':limits.alerts?.max||0}</span></div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:0.5rem"><div style="height:100%;width:${(limits.alerts?.current||0)/(limits.alerts?.max===-1?100:limits.alerts?.max||1)*100}%;background:${(limits.alerts?.current||0)>=(limits.alerts?.max||1)?'var(--danger)':'var(--success)'};border-radius:2px"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:0.25rem"><span>IA/día</span><span>${limits.aiAnalysisPerDay===-1?'∞':limits.aiAnalysisPerDay||1}</span></div>
+      </div>
+      <a href="/pricing" style="display:block;text-align:center;padding:0.5rem;background:var(--accent);color:#000;border-radius:8px;font-size:0.85rem;font-weight:bold;text-decoration:none;margin-bottom:0.5rem">Mejorar Plan</a>
+      <a href="/profile" style="display:block;text-align:center;padding:0.5rem;background:var(--bg3);color:var(--text);border-radius:8px;font-size:0.85rem;text-decoration:none">Mi Perfil Completo</a>
+    `;
+  }catch(e){
+    document.getElementById('sidebar-plan-content').innerHTML='<div style="color:var(--muted);font-size:0.85rem">Error al cargar plan</div>';
+  }
 }
 
 async function addToWatchlist(){

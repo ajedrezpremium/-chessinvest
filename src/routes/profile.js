@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { get, all, run } = require('../services/database');
+const { hashPassword, verifyPassword } = require('../services/auth');
 
 const router = Router();
 
@@ -248,6 +249,62 @@ router.get('/summary', requireAuth, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get profile summary' });
+  }
+});
+
+// ── Personal Data ─────────────────────────────────────────
+
+router.put('/personal', requireAuth, async (req, res) => {
+  try {
+    const { first_name, last_name, phone, birth_date, country, investor_profile, experience } = req.body;
+    console.log('Updating personal data for user:', req.user.id, 'with:', { first_name, last_name, phone, birth_date, country, investor_profile, experience });
+    await run(
+      `UPDATE users SET first_name = ?, last_name = ?, phone = ?, birth_date = ?, country = ?, investor_profile = ?, experience = ? WHERE id = ?`,
+      [first_name || null, last_name || null, phone || null, birth_date || null, country || null, investor_profile || null, experience || null, req.user.id],
+    );
+    const user = await get('SELECT id, email, username, first_name, last_name, phone, birth_date, country, investor_profile, experience FROM users WHERE id = ?', [req.user.id]);
+    res.json(user);
+  } catch (err) {
+    console.error('Personal data update error:', err.message, err.stack);
+    res.status(500).json({ error: 'Failed to update personal data', details: err.message });
+  }
+});
+
+// ── Avatar ────────────────────────────────────────────────
+
+router.put('/avatar', requireAuth, async (req, res) => {
+  try {
+    const { avatar } = req.body;
+    if (!avatar) return res.status(400).json({ error: 'Avatar required' });
+    await run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, req.user.id]);
+    res.json({ success: true, avatar });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update avatar' });
+  }
+});
+
+// ── Password Change ───────────────────────────────────────
+
+router.put('/password', requireAuth, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: 'Current and new password required' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const user = await get('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
+    if (!user || !verifyPassword(current_password, user.password_hash)) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const newHash = hashPassword(new_password);
+    await run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.user.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 

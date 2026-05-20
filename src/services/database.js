@@ -88,6 +88,14 @@ async function initSchema() {
       email TEXT UNIQUE NOT NULL,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      phone TEXT,
+      birth_date TEXT,
+      country TEXT DEFAULT 'ES',
+      investor_profile TEXT DEFAULT 'moderate',
+      experience TEXT DEFAULT 'beginner',
+      avatar TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     )`,
     `CREATE TABLE IF NOT EXISTS watchlist (
@@ -177,6 +185,25 @@ async function initSchema() {
 
   for (const sql of tables) {
     run(sql);
+  }
+
+  const alterStatements = [
+    'ALTER TABLE users ADD COLUMN first_name TEXT',
+    'ALTER TABLE users ADD COLUMN last_name TEXT',
+    'ALTER TABLE users ADD COLUMN phone TEXT',
+    'ALTER TABLE users ADD COLUMN birth_date TEXT',
+    'ALTER TABLE users ADD COLUMN country TEXT DEFAULT \'ES\'',
+    'ALTER TABLE users ADD COLUMN investor_profile TEXT DEFAULT \'moderate\'',
+    'ALTER TABLE users ADD COLUMN experience TEXT DEFAULT \'beginner\'',
+    'ALTER TABLE users ADD COLUMN avatar TEXT',
+  ];
+
+  for (const sql of alterStatements) {
+    try {
+      run(sql);
+    } catch {
+      // Column might already exist
+    }
   }
 
   const indexes = [
