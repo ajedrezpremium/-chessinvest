@@ -134,6 +134,31 @@ async function startServer() {
     } catch (err) {
       logger.error(`Admin seed failed: ${err.message}`);
     }
+
+    // Auto-seed collaborator admin (idempotent)
+    try {
+      const collabEmail = 'carlosguerra@gmail.com';
+      const collabUsername = 'xadreztomiño';
+      const collabExisting = get('SELECT id, role FROM users WHERE email = ?', [collabEmail]);
+      if (!collabExisting) {
+        const hash = hashPassword('Chess2026#');
+        const result = run(
+          "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, 'admin', '♔')",
+          [collabEmail, collabUsername, hash],
+        );
+        run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'premium', 'active']);
+        run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
+        saveDb();
+        logger.info('Collaborator admin auto-seeded: carlosguerra@gmail.com');
+      } else if (collabExisting.role !== 'admin') {
+        run("UPDATE users SET role = 'admin', avatar = '♔' WHERE email = ?", [collabEmail]);
+        run("UPDATE subscriptions SET plan = 'premium', status = 'active' WHERE user_id = ?", [collabExisting.id]);
+        saveDb();
+        logger.info('Collaborator admin role restored: carlosguerra@gmail.com');
+      }
+    } catch (err) {
+      logger.error(`Collaborator admin seed failed: ${err.message}`);
+    }
   } catch (err) {
     logger.error(`Database init failed: ${err.message}. Continuing without persistence.`);
   }
