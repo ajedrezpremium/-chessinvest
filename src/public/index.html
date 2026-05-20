@@ -817,8 +817,12 @@ function apiHeaders(){
 
 async function apiFetch(url,opts){
   const res=await fetch(url,{...opts,headers:{...apiHeaders(),...opts?.headers}});
-  const d=await res.json();
-  if(!res.ok)throw new Error(d.error||'Request failed');
+  const d=await res.json().catch(()=>({error:'Invalid response'}));
+  if(!res.ok){
+    const err=new Error(d.error||'Request failed');
+    err.status=res.status;
+    throw err;
+  }
   return d;
 }
 
@@ -896,7 +900,11 @@ async function checkAuth(){
     updateUserUI();
     renderPortfolio();
     loadSubscriptionSidebar();
-  }catch{clearToken();}
+  }catch(e){
+    // Solo borrar token si es 401 (token inválido/expirado)
+    // NO borrar por errores de red (Render dormido, etc.)
+    if(e.status===401)clearToken();
+  }
 }
 
 async function toggleSubscriptionSidebar(){

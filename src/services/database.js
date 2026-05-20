@@ -88,6 +88,7 @@ async function initSchema() {
       email TEXT UNIQUE NOT NULL,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
       first_name TEXT,
       last_name TEXT,
       phone TEXT,
@@ -181,6 +182,28 @@ async function initSchema() {
       voice_lang TEXT NOT NULL DEFAULT 'es-ES',
       updated_at TEXT DEFAULT (datetime('now'))
     )`,
+    `CREATE TABLE IF NOT EXISTS incidents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      type TEXT NOT NULL DEFAULT 'support',
+      subject TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      priority TEXT NOT NULL DEFAULT 'medium',
+      admin_notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_campaigns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject TEXT NOT NULL,
+      content TEXT,
+      type TEXT NOT NULL DEFAULT 'newsletter',
+      target_plan TEXT NOT NULL DEFAULT 'all',
+      status TEXT NOT NULL DEFAULT 'draft',
+      sent_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
   ];
 
   for (const sql of tables) {
@@ -196,6 +219,7 @@ async function initSchema() {
     'ALTER TABLE users ADD COLUMN investor_profile TEXT DEFAULT \'moderate\'',
     'ALTER TABLE users ADD COLUMN experience TEXT DEFAULT \'beginner\'',
     'ALTER TABLE users ADD COLUMN avatar TEXT',
+    'ALTER TABLE users ADD COLUMN role TEXT DEFAULT \'user\'',
   ];
 
   for (const sql of alterStatements) {

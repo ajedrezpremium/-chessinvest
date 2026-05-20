@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHESS INVEST - Panel Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0e17; --bg2: #111827; --bg3: #1f2937; --bg4: #1a2235;
+      --accent: #f59e0b; --accent2: #d97706;
+      --success: #10b981; --danger: #ef4444; --info: #3b82f6; --purple: #8b5cf6;
+      --text: #e0e0e0; --muted: #8892a0; --border: #2d3748;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; background: var(--bg2); border-right: 1px solid var(--border); padding: 1rem; overflow-y: auto; z-index: 100; }
+    .sidebar-logo { font-family: 'Space Mono', monospace; font-size: 14px; color: var(--accent); letter-spacing: 2px; padding: 0.75rem 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+    .sidebar-logo span { color: var(--danger); font-size: 10px; display: block; letter-spacing: 1px; }
+    .nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--muted); font-size: 0.85rem; margin-bottom: 0.25rem; }
+    .nav-item:hover { background: var(--bg3); color: var(--text); }
+    .nav-item.active { background: var(--accent); color: #000; font-weight: bold; }
+    .nav-item .icon { font-size: 1.1rem; }
+    .main { margin-left: 240px; padding: 1.5rem; min-height: 100vh; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .header h1 { font-size: 1.5rem; }
+    .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+    .admin-badge { background: var(--danger); color: #fff; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .stat-card.blue::before { background: var(--info); }
+    .stat-card.green::before { background: var(--success); }
+    .stat-card.amber::before { background: var(--accent); }
+    .stat-card.purple::before { background: var(--purple); }
+    .stat-card.red::before { background: var(--danger); }
+    .stat-value { font-size: 1.75rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .stat-label { font-size: 0.8rem; color: var(--muted); }
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; }
+    .card h3 { font-size: 1rem; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+    .section { display: none; }
+    .section.active { display: block; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    th { color: var(--muted); font-weight: normal; }
+    tr:hover { background: var(--bg3); }
+    .badge { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
+    .badge.admin { background: var(--danger); color: #fff; }
+    .badge.user { background: var(--bg3); color: var(--muted); }
+    .badge.premium { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+    .badge.pro { background: var(--purple); color: #fff; }
+    .badge.basic { background: var(--info); color: #fff; }
+    .badge.free { background: var(--bg3); color: var(--muted); }
+    .badge.open { background: var(--danger); color: #fff; }
+    .badge.pending { background: var(--accent); color: #000; }
+    .badge.resolved { background: var(--success); color: #fff; }
+    .badge.high { background: var(--danger); color: #fff; }
+    .badge.medium { background: var(--accent); color: #000; }
+    .badge.low { background: var(--success); color: #fff; }
+    .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
+    .search-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .search-box input { flex: 1; padding: 0.5rem 1rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; }
+    .search-box input:focus { outline: none; border-color: var(--accent); }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--bg2); border-radius: 12px; padding: 1.5rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .modal-close { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
+    .form-group { margin-bottom: 0.75rem; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.5rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .pagination { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
+    .pagination button { padding: 0.35rem 0.75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; color: var(--text); cursor: pointer; }
+    .pagination button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; display: none; z-index: 1001; }
+    .toast.error { background: var(--danger); }
+    .empty { text-align: center; padding: 2rem; color: var(--muted); }
+    @media (max-width: 768px) { .sidebar { width: 60px; } .sidebar .nav-text, .sidebar-logo span { display: none; } .main { margin-left: 60px; } }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">♔ ADMIN<span>Panel de Control</span></div>
+    <div class="nav-item active" data-section="dashboard"><span class="icon">📊</span><span class="nav-text">Dashboard</span></div>
+    <div class="nav-item" data-section="users"><span class="icon">👥</span><span class="nav-text">Usuarios</span></div>
+    <div class="nav-item" data-section="subscriptions"><span class="icon">💳</span><span class="nav-text">Suscripciones</span></div>
+    <div class="nav-item" data-section="incidents"><span class="icon">🎫</span><span class="nav-text">Incidencias</span></div>
+    <div class="nav-item" data-section="emails"><span class="icon">📧</span><span class="nav-text">Emails</span></div>
+    <div class="nav-item" data-section="system"><span class="icon">⚙️</span><span class="nav-text">Sistema</span></div>
+    <div class="nav-item" onclick="window.location.href='/'"><span class="icon">🏠</span><span class="nav-text">Volver al Site</span></div>
+  </div>
+
+  <div class="main">
+    <div class="header">
+      <h1 id="pageTitle">📊 Dashboard</h1>
+      <div class="header-actions">
+        <span class="admin-badge">👑 ADMIN</span>
+        <span id="adminEmail" style="font-size:0.85rem;color:var(--muted)"></span>
+      </div>
+    </div>
+
+    <div id="dashboard" class="section active">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="card">
+        <h3>👥 Usuarios Recientes</h3>
+        <table>
+          <thead><tr><th>ID</th><th>Email</th><th>Username</th><th>Rol</th><th>Plan</th><th>Fecha</th></tr></thead>
+          <tbody id="recentUsersTable"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>💰 Ingresos Estimados (MRR)</h3>
+        <div id="revenueStats"></div>
+      </div>
+    </div>
+
+    <div id="users" class="section">
+      <div class="search-box">
+        <input type="text" id="userSearch" placeholder="Buscar por email o username..." oninput="loadUsers(1)">
+      </div>
+      <div class="card">
+        <h3>👥 Gestión de Usuarios</h3>
+        <table>
+          <thead><tr><th>ID</th><th>Email</th><th>Username</th><th>Rol</th><th>Plan</th><th>Avatar</th><th>Fecha</th><th>Acciones</th></tr></thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+        <div class="pagination" id="usersPagination"></div>
+      </div>
+    </div>
+
+    <div id="subscriptions" class="section">
+      <div class="card">
+        <h3>💳 Suscripciones Activas</h3>
+        <table>
+          <thead><tr><th>ID</th><th>Usuario</th><th>Plan</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Acciones</th></tr></thead>
+          <tbody id="subsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="incidents" class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3>🎫 Incidencias</h3>
+        <button class="btn btn-primary btn-sm" onclick="openModal('incidentModal')">+ Nueva Incidencia</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>ID</th><th>Usuario</th><th>Tipo</th><th>Asunto</th><th>Prioridad</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
+          <tbody id="incidentsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="emails" class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3>📧 Campañas de Email</h3>
+        <button class="btn btn-primary btn-sm" onclick="openModal('emailModal')">+ Nueva Campaña</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>ID</th><th>Asunto</th><th>Tipo</th><th>Target</th><th>Estado</th><th>Enviados</th><th>Fecha</th></tr></thead>
+          <tbody id="emailsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="system" class="section">
+      <div class="card">
+        <h3>⚙️ Estado del Sistema</h3>
+        <div id="systemHealth"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="roleModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Cambiar Rol</h3><button class="modal-close" onclick="closeModal('roleModal')">&times;</button></div>
+      <div class="form-group">
+        <label>Rol</label>
+        <select id="newRole"><option value="user">Usuario</option><option value="admin">Administrador</option><option value="moderator">Moderador</option></select>
+      </div>
+      <input type="hidden" id="roleUserId">
+      <button class="btn btn-primary" onclick="updateRole()">Actualizar</button>
+    </div>
+  </div>
+
+  <div id="planModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Cambiar Plan</h3><button class="modal-close" onclick="closeModal('planModal')">&times;</button></div>
+      <div class="form-group">
+        <label>Plan</label>
+        <select id="newPlan"><option value="free">Gratis</option><option value="basic">Básico (€4.99)</option><option value="pro">Pro (€14.99)</option><option value="premium">Premium (€49.99)</option></select>
+      </div>
+      <input type="hidden" id="planUserId">
+      <button class="btn btn-primary" onclick="updatePlan()">Actualizar</button>
+    </div>
+  </div>
+
+  <div id="incidentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Nueva Incidencia</h3><button class="modal-close" onclick="closeModal('incidentModal')">&times;</button></div>
+      <div class="form-group"><label>Usuario ID</label><input type="number" id="incUserId"></div>
+      <div class="form-group"><label>Asunto</label><input type="text" id="incSubject"></div>
+      <div class="form-group"><label>Descripción</label><textarea id="incDesc"></textarea></div>
+      <div class="form-group"><label>Prioridad</label><select id="incPriority"><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></div>
+      <button class="btn btn-primary" onclick="createIncident()">Crear</button>
+    </div>
+  </div>
+
+  <div id="emailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Nueva Campaña</h3><button class="modal-close" onclick="closeModal('emailModal')">&times;</button></div>
+      <div class="form-group"><label>Asunto</label><input type="text" id="emailSubject"></div>
+      <div class="form-group"><label>Contenido</label><textarea id="emailContent"></textarea></div>
+      <div class="form-group"><label>Tipo</label><select id="emailType"><option value="newsletter">Newsletter</option><option value="promotion">Promoción</option><option value="alert">Alerta</option></select></div>
+      <div class="form-group"><label>Plan Target</label><select id="emailTarget"><option value="all">Todos</option><option value="free">Gratis</option><option value="basic">Básico</option><option value="pro">Pro</option><option value="premium">Premium</option></select></div>
+      <button class="btn btn-primary" onclick="createEmail()">Crear Borrador</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('token');
+    let currentUser = null;
+
+    function showToast(msg, err = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast${err ? ' error' : ''}`;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    document.querySelectorAll('.nav-item[data-section]').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        item.classList.add('active');
+        const section = item.dataset.section;
+        document.getElementById(section).classList.add('active');
+        const titles = { dashboard: '📊 Dashboard', users: '👥 Usuarios', subscriptions: '💳 Suscripciones', incidents: '🎫 Incidencias', emails: '📧 Emails', system: '⚙️ Sistema' };
+        document.getElementById('pageTitle').textContent = titles[section] || 'Admin';
+        if (section === 'users') loadUsers(1);
+        if (section === 'subscriptions') loadSubscriptions();
+        if (section === 'incidents') loadIncidents();
+        if (section === 'emails') loadEmails();
+        if (section === 'system') loadSystemHealth();
+      });
+    });
+
+    async function apiFetch(url, opts = {}) {
+      const res = await fetch(url, { ...opts, headers: { ...{ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...opts.headers } });
+      const d = await res.json().catch(() => ({ error: 'Invalid response' }));
+      if (!res.ok) { const e = new Error(d.error); e.status = res.status; throw e; }
+      return d;
+    }
+
+    async function checkAdmin() {
+      if (!token) { window.location.href = '/'; return; }
+      try {
+        currentUser = await apiFetch('/api/auth/me');
+        if (currentUser.plan !== 'premium' && currentUser.role !== 'admin') {
+          // Allow access if user has the specific admin email
+        }
+        document.getElementById('adminEmail').textContent = currentUser.email;
+        loadDashboard();
+      } catch (e) {
+        if (e.status === 401) { localStorage.removeItem('token'); window.location.href = '/'; }
+      }
+    }
+
+    async function loadDashboard() {
+      try {
+        const stats = await apiFetch('/api/admin/stats');
+        document.getElementById('statsGrid').innerHTML = `
+          <div class="stat-card blue"><div class="stat-value">${stats.totalUsers}</div><div class="stat-label">Usuarios Totales</div></div>
+          <div class="stat-card green"><div class="stat-value">${stats.totalSubscriptions}</div><div class="stat-label">Suscripciones Activas</div></div>
+          <div class="stat-card amber"><div class="stat-value">€${stats.estimatedMRR}</div><div class="stat-label">MRR Estimado</div></div>
+          <div class="stat-card purple"><div class="stat-value">${stats.totalGoals}</div><div class="stat-label">Objetivos</div></div>
+          <div class="stat-card red"><div class="stat-value">${stats.totalAlerts}</div><div class="stat-label">Alertas Activas</div></div>
+        `;
+
+        document.getElementById('recentUsersTable').innerHTML = stats.recentUsers.map(u => `
+          <tr>
+            <td>${u.id}</td><td>${u.email}</td><td>${u.username}</td>
+            <td><span class="badge ${u.role}">${u.role}</span></td>
+            <td><span class="badge ${u.plan || 'free'}">${u.plan || 'free'}</span></td>
+            <td>${new Date(u.created_at).toLocaleDateString('es-ES')}</td>
+          </tr>
+        `).join('');
+
+        document.getElementById('revenueStats').innerHTML = stats.revenue.map(r => {
+          const prices = { basic: 4.99, pro: 14.99, premium: 49.99 };
+          const total = r.count * (prices[r.plan] || 0);
+          return `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+            <span>${r.plan.charAt(0).toUpperCase() + r.plan.slice(1)}: ${r.count} usuarios</span>
+            <span style="color:var(--success);font-weight:bold">€${total.toFixed(2)}/mes</span>
+          </div>`;
+        }).join('') || '<div class="empty">Sin suscripciones de pago</div>';
+      } catch (e) {
+        showToast('Error al cargar dashboard', true);
+      }
+    }
+
+    async function loadUsers(page = 1) {
+      try {
+        const search = document.getElementById('userSearch').value;
+        const data = await apiFetch(`/api/admin/users?page=${page}&limit=20&search=${encodeURIComponent(search)}`);
+        document.getElementById('usersTable').innerHTML = data.users.map(u => `
+          <tr>
+            <td>${u.id}</td><td>${u.email}</td><td>${u.username}</td>
+            <td><span class="badge ${u.role}">${u.role}</span></td>
+            <td><span class="badge ${u.plan || 'free'}">${u.plan || 'free'}</span></td>
+            <td>${u.avatar || '-'}</td>
+            <td>${new Date(u.created_at).toLocaleDateString('es-ES')}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" onclick="openRoleModal(${u.id},'${u.role}')">Rol</button>
+              <button class="btn btn-sm" style="background:var(--purple);color:#fff" onclick="openPlanModal(${u.id},'${u.plan || 'free'}')">Plan</button>
+              ${u.id !== currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">✕</button>` : ''}
+            </td>
+          </tr>
+        `).join('');
+
+        const totalPages = Math.ceil(data.total / data.limit);
+        let pagination = '';
+        for (let i = 1; i <= totalPages; i++) {
+          pagination += `<button class="${i === page ? 'active' : ''}" onclick="loadUsers(${i})">${i}</button>`;
+        }
+        document.getElementById('usersPagination').innerHTML = pagination;
+      } catch (e) {
+        showToast('Error al cargar usuarios', true);
+      }
+    }
+
+    function openRoleModal(id, role) {
+      document.getElementById('roleUserId').value = id;
+      document.getElementById('newRole').value = role;
+      openModal('roleModal');
+    }
+
+    async function updateRole() {
+      try {
+        const id = document.getElementById('roleUserId').value;
+        const role = document.getElementById('newRole').value;
+        await apiFetch(`/api/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) });
+        closeModal('roleModal');
+        showToast('Rol actualizado');
+        loadUsers(1);
+      } catch (e) {
+        showToast('Error al actualizar rol', true);
+      }
+    }
+
+    function openPlanModal(id, plan) {
+      document.getElementById('planUserId').value = id;
+      document.getElementById('newPlan').value = plan;
+      openModal('planModal');
+    }
+
+    async function updatePlan() {
+      try {
+        const id = document.getElementById('planUserId').value;
+        const plan = document.getElementById('newPlan').value;
+        await apiFetch(`/api/admin/users/${id}/plan`, { method: 'PUT', body: JSON.stringify({ plan }) });
+        closeModal('planModal');
+        showToast('Plan actualizado');
+        loadUsers(1);
+      } catch (e) {
+        showToast('Error al actualizar plan', true);
+      }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('¿Eliminar este usuario permanentemente?')) return;
+      try {
+        await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        showToast('Usuario eliminado');
+        loadUsers(1);
+      } catch (e) {
+        showToast('Error al eliminar usuario', true);
+      }
+    }
+
+    async function loadSubscriptions() {
+      try {
+        const subs = await apiFetch('/api/admin/subscriptions');
+        document.getElementById('subsTable').innerHTML = subs.map(s => `
+          <tr>
+            <td>${s.id}</td><td>${s.username || s.email}</td>
+            <td><span class="badge ${s.plan}">${s.plan}</span></td>
+            <td><span class="badge ${s.status === 'active' ? 'resolved' : 'open'}">${s.status}</span></td>
+            <td>${s.current_period_start ? new Date(s.current_period_start).toLocaleDateString('es-ES') : '-'}</td>
+            <td>${s.current_period_end ? new Date(s.current_period_end).toLocaleDateString('es-ES') : '-'}</td>
+            <td>-</td>
+          </tr>
+        `).join('') || '<tr><td colspan="7" class="empty">Sin suscripciones</td></tr>';
+      } catch (e) {
+        showToast('Error al cargar suscripciones', true);
+      }
+    }
+
+    async function loadIncidents() {
+      try {
+        const incidents = await apiFetch('/api/admin/incidents');
+        document.getElementById('incidentsTable').innerHTML = incidents.map(i => `
+          <tr>
+            <td>${i.id}</td><td>${i.user_id || '-'}</td><td>${i.type}</td><td>${i.subject}</td>
+            <td><span class="badge ${i.priority}">${i.priority}</span></td>
+            <td><span class="badge ${i.status === 'open' ? 'open' : 'resolved'}">${i.status}</span></td>
+            <td>${new Date(i.created_at).toLocaleDateString('es-ES')}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" onclick="resolveIncident(${i.id})">Resolver</button>
+            </td>
+          </tr>
+        `).join('') || '<tr><td colspan="8" class="empty">Sin incidencias</td></tr>';
+      } catch (e) {
+        document.getElementById('incidentsTable').innerHTML = '<tr><td colspan="8" class="empty">Sin incidencias</td></tr>';
+      }
+    }
+
+    async function createIncident() {
+      try {
+        await apiFetch('/api/admin/incidents', {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: document.getElementById('incUserId').value || null,
+            subject: document.getElementById('incSubject').value,
+            description: document.getElementById('incDesc').value,
+            priority: document.getElementById('incPriority').value,
+          }),
+        });
+        closeModal('incidentModal');
+        showToast('Incidencia creada');
+        loadIncidents();
+      } catch (e) {
+        showToast('Error al crear incidencia', true);
+      }
+    }
+
+    async function resolveIncident(id) {
+      try {
+        await apiFetch(`/api/admin/incidents/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'resolved' }) });
+        showToast('Incidencia resuelta');
+        loadIncidents();
+      } catch (e) {
+        showToast('Error al resolver', true);
+      }
+    }
+
+    async function loadEmails() {
+      try {
+        const emails = await apiFetch('/api/admin/emails');
+        document.getElementById('emailsTable').innerHTML = emails.map(e => `
+          <tr>
+            <td>${e.id}</td><td>${e.subject}</td><td>${e.type}</td><td>${e.target_plan}</td>
+            <td><span class="badge ${e.status === 'sent' ? 'resolved' : 'pending'}">${e.status}</span></td>
+            <td>${e.sent_count}</td>
+            <td>${new Date(e.created_at).toLocaleDateString('es-ES')}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="7" class="empty">Sin campañas</td></tr>';
+      } catch (e) {
+        document.getElementById('emailsTable').innerHTML = '<tr><td colspan="7" class="empty">Sin campañas</td></tr>';
+      }
+    }
+
+    async function createEmail() {
+      try {
+        await apiFetch('/api/admin/emails', {
+          method: 'POST',
+          body: JSON.stringify({
+            subject: document.getElementById('emailSubject').value,
+            content: document.getElementById('emailContent').value,
+            type: document.getElementById('emailType').value,
+            target_plan: document.getElementById('emailTarget').value,
+          }),
+        });
+        closeModal('emailModal');
+        showToast('Campaña creada como borrador');
+        loadEmails();
+      } catch (e) {
+        showToast('Error al crear campaña', true);
+      }
+    }
+
+    async function loadSystemHealth() {
+      try {
+        const health = await apiFetch('/api/admin/health');
+        document.getElementById('systemHealth').innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem">
+            <div><strong>Uptime:</strong> ${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m</div>
+            <div><strong>Node:</strong> ${health.nodeVersion}</div>
+            <div><strong>RAM RSS:</strong> ${health.memory.rss}</div>
+            <div><strong>Heap Used:</strong> ${health.memory.heapUsed}</div>
+            <div><strong>DB Size:</strong> ${health.dbSize}</div>
+            <div><strong>Env:</strong> ${health.env}</div>
+          </div>
+        `;
+      } catch (e) {
+        showToast('Error al cargar estado del sistema', true);
+      }
+    }
+
+    document.querySelectorAll('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); }); });
+
+    checkAdmin();
+  </script>
+</body>
+</html>

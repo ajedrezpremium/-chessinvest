@@ -18,6 +18,7 @@ const analyzerRoutes = require('./routes/analyzer');
 const subscriptionRoutes = require('./routes/subscription');
 const profileRoutes = require('./routes/profile');
 const analyticsRoutes = require('./routes/analytics');
+const adminRoutes = require('./routes/admin');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb } = require('./services/database');
@@ -56,6 +57,10 @@ app.get('/analyzer', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'analyzer.html'));
 });
 
+app.get('/admin', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'admin.html'));
+});
+
 app.use('/api', aiRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/auth', authRoutes);
@@ -64,6 +69,7 @@ app.use('/api/analyzer', analyzerRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Test endpoint
 app.get('/api/test', (_req, res) => {
