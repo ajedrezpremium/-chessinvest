@@ -566,7 +566,7 @@
 
   <script>
     const API = '/api';
-    let token = localStorage.getItem('token');
+    let token = localStorage.getItem('chessinvest_token');
     let currentUser = null;
     let subscription = null;
     let selectedAvatar = null;
@@ -635,7 +635,7 @@
           console.error('Profile summary failed:', summaryRes.status);
           if (summaryRes.status === 401) {
             document.body.innerHTML = '<div style="padding:2rem;text-align:center"><h2>Sesión expirada</h2><p>Tu sesión ha caducado. Por favor, inicia sesión de nuevo.</p><a href="/" class="btn btn-primary">Iniciar Sesión</a></div>';
-            localStorage.removeItem('token');
+            localStorage.removeItem('chessinvest_token');
             return;
           }
           throw new Error(`Server error: ${summaryRes.status}`);

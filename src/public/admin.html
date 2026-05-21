@@ -227,7 +227,7 @@
 
   <script>
     const API = '/api';
-    let token = localStorage.getItem('token');
+    let token = localStorage.getItem('chessinvest_token');
     let currentUser = null;
 
     function showToast(msg, err = false) {
@@ -275,7 +275,7 @@
         document.getElementById('adminEmail').textContent = currentUser.email;
         loadDashboard();
       } catch (e) {
-        if (e.status === 401) { localStorage.removeItem('token'); window.location.href = '/'; }
+        if (e.status === 401) { localStorage.removeItem('chessinvest_token'); window.location.href = '/'; }
       }
     }
 

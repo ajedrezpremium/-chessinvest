@@ -152,7 +152,7 @@ let synth=window.speechSynthesis;
 let voiceSettings={ttsEnabled:true,sttEnabled:true,rate:1,pitch:1,lang:'es-ES'};
 
 async function loadVoiceSettings(){
-  const token=localStorage.getItem('token');
+  const token=localStorage.getItem('chessinvest_token');
   if(token){
     try{
       const res=await fetch('/api/profile/settings',{headers:{Authorization:`Bearer ${token}`}});
