@@ -202,6 +202,7 @@ async function sendMsg(){
           }else if(ev.type==='done'){
             lastTA=ev.technicalAnalysis;
             if(ev.autoSignal)showAutoSignal(ev.autoSignal);
+            if(ev.backtest)showBacktest(ev.backtest);
           }
         }catch(e){/* skip */}
       }
@@ -221,6 +222,23 @@ async function sendMsg(){
   loading=false;
   sendBtn.disabled=false;
   input.focus();
+}
+
+function showBacktest(bt){
+  const sa=document.getElementById('signal-alert');
+  const emoji=bt.totalReturn>=0?'🟢':'🔴';
+  const info=document.createElement('div');
+  info.style.cssText='background:rgba(0,230,118,0.05);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:12px 16px;margin:8px 0;font-size:12px;line-height:1.7';
+  info.innerHTML=`<div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:4px">📊 BACKTEST</div>
+    <div>${emoji} Retorno: <strong>${bt.totalReturn>=0?'+':''}${bt.totalReturn}%</strong> · Win Rate: ${bt.winRate}% (${bt.totalTrades} trades)</div>
+    <div style="display:flex;gap:12px;margin-top:4px;color:var(--muted)">
+      <span>Sharpe: ${bt.sharpe}</span>
+      <span>MDD: -${bt.maxDrawdown}%</span>
+      ${bt.profitFactor?`<span>PF: ${bt.profitFactor}</span>`:''}
+    </div>`;
+  const msgs=document.getElementById('messages');
+  msgs.appendChild(info);
+  msgs.scrollTop=msgs.scrollHeight;
 }
 
 function renderMiniChart(canvasId,ta){

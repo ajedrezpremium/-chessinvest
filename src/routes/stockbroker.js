@@ -1,9 +1,11 @@
 const { Router } = require('express');
+const config = require('../config');
 const { callAI, callAIStream } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
 const { getTechnicalAnalysis, formatTechnicalContext } = require('../services/technicalAnalysisService');
 const { fetchEconomicCalendar, formatCalendarContext } = require('../services/economicCalendar');
+const { runBacktest, formatBacktestContext } = require('../services/backtestService');
 const { optionalAuth } = require('../middleware/auth');
 const { get, all, run } = require('../services/database');
 const { saveDb } = require('../services/database');
@@ -109,6 +111,46 @@ async function getUserPortfolioContext(userId) {
   }
 }
 
+async function getSignalPnL(userId) {
+  if (!userId) return null;
+  try {
+    const portfolio = await all('SELECT ticker, shares, avg_price FROM portfolio WHERE user_id = ?', [userId]);
+    const signals = await all(
+      "SELECT * FROM signal_history WHERE user_id = ? AND agent = 'stockbroker' ORDER BY created_at DESC LIMIT 20",
+      [userId]
+    );
+    if (!portfolio?.length || !signals?.length) return null;
+
+    const matches = [];
+    for (const s of signals) {
+      const pos = portfolio.find(p => p.ticker === s.asset);
+      if (!pos) continue;
+      const pnlPct = s.direction === 'LARGO'
+        ? ((pos.avg_price - parseFloat(s.entry_price || 0)) / parseFloat(s.entry_price || 1)) * 100
+        : ((parseFloat(s.entry_price || 0) - pos.avg_price) / parseFloat(s.entry_price || 1)) * 100;
+      matches.push({
+        asset: s.asset,
+        direction: s.direction,
+        entryPrice: s.entry_price,
+        currentPrice: pos.avg_price,
+        pnlPct: Math.round(pnlPct * 100) / 100,
+        shares: pos.shares,
+        signalDate: s.created_at,
+      });
+    }
+    return matches.slice(0, 5);
+  } catch (err) {
+    logger.warn(`Signal P&L failed: ${err.message}`);
+    return null;
+  }
+}
+
+function selectModel(detectedFutures, taResults) {
+  if (config.openRouter.model) return config.openRouter.model;
+  const hasComplexData = detectedFutures.length > 0 || taResults.some(Boolean);
+  return hasComplexData ? 'claude-sonnet-4-20250514' : 'google/gemini-2.0-flash-exp:free';
+}
+
 const FUTURES_PATTERN = /\b(ES|NQ|RTY|YM|CL|GC|SI|HG|NG|ZB|ZN|6E|6B|6J|VIX|DXY)\b/g;
 
 function extractFutures(message) {
@@ -207,8 +249,9 @@ router.post('/chat', optionalAuth, async (req, res) => {
 
     const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets. El CALENDARIO ECONÓMICO arriba muestra los eventos macro que impactan los mercados. Tenlos en cuenta en tu análisis.`;
 
+    const model = selectModel(detectedFutures, taResults);
     const aiPayload = {
-      model: 'claude-sonnet-4-20250514',
+      model,
       max_tokens: 2000,
       temperature: 0.7,
       system: FUTURES_SYSTEM_PROMPT,
@@ -231,9 +274,16 @@ router.post('/chat', optionalAuth, async (req, res) => {
 
     const autoSignal = extractSignalFromResponse(aiResponse.content[0].text, detectedFutures);
     let signalId = null;
+    let backtest = null;
     if (autoSignal) {
       signalId = await autoSaveSignal(req.user?.id, autoSignal);
+      const btSymbol = detectedFutures[0] ? FUTURES_TO_SYMBOL[detectedFutures[0]] : null;
+      if (btSymbol) {
+        backtest = await runBacktest(btSymbol, autoSignal.direction, autoSignal.entry_price, autoSignal.stop_loss, autoSignal.take_profit);
+      }
     }
+
+    const signalPnL = await getSignalPnL(req.user?.id);
 
     res.json({
       response: aiResponse.content[0].text,
@@ -248,6 +298,11 @@ router.post('/chat', optionalAuth, async (req, res) => {
         sma50: ta.sma?.sma50,
       })),
       autoSignal: autoSignal ? { ...autoSignal, id: signalId } : null,
+      backtest: backtest ? {
+        symbol: backtest.symbol, totalTrades: backtest.totalTrades, winRate: backtest.winRate,
+        totalReturn: backtest.totalReturn, sharpe: backtest.sharpe, maxDrawdown: backtest.maxDrawdown,
+      } : null,
+      signalPnL,
     });
   } catch (err) {
     logger.error(`Stockbroker chat error: ${err.message}`);
@@ -296,8 +351,9 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
 
   const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets. El CALENDARIO ECONÓMICO arriba muestra los eventos macro que impactan los mercados. Tenlos en cuenta en tu análisis.`;
 
+  const model = selectModel(detectedFutures, taResults);
   const aiPayload = {
-    model: 'claude-sonnet-4-20250514',
+    model,
     max_tokens: 2000,
     temperature: 0.7,
     system: FUTURES_SYSTEM_PROMPT,
@@ -320,14 +376,26 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
 
         const autoSignal = extractSignalFromResponse(result.content[0].text, detectedFutures);
         let signalId = null;
+        let backtest = null;
         if (autoSignal) {
           signalId = await autoSaveSignal(req.user?.id, autoSignal);
+          const btSymbol = detectedFutures[0] ? FUTURES_TO_SYMBOL[detectedFutures[0]] : null;
+          if (btSymbol) {
+            backtest = await runBacktest(btSymbol, autoSignal.direction, autoSignal.entry_price, autoSignal.stop_loss, autoSignal.take_profit);
+          }
         }
+
+        const signalPnL = await getSignalPnL(req.user?.id);
 
         res.write(`data: ${JSON.stringify({
           type: 'done',
           wisdom,
           autoSignal: autoSignal ? { ...autoSignal, id: signalId } : null,
+          backtest: backtest ? {
+            symbol: backtest.symbol, totalTrades: backtest.totalTrades, winRate: backtest.winRate,
+            totalReturn: backtest.totalReturn, sharpe: backtest.sharpe, maxDrawdown: backtest.maxDrawdown,
+          } : null,
+          signalPnL,
           technicalAnalysis: taResults.filter(Boolean).map(ta => ({
             symbol: ta.symbol, rsi: ta.rsi, macd: ta.macd?.macd, sma20: ta.sma?.sma20, sma50: ta.sma?.sma50,
           })),
