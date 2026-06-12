@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { callAI } = require('../services/aiProvider');
+const { callAI, callAIStream } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
 const { getTechnicalAnalysis, formatTechnicalContext } = require('../services/technicalAnalysisService');
@@ -254,6 +254,81 @@ router.post('/chat', optionalAuth, async (req, res) => {
       fallback: true,
     });
   }
+});
+
+router.post('/chat/stream', optionalAuth, async (req, res) => {
+  const { message } = req.body;
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Mensaje requerido' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const detectedFutures = extractFutures(message);
+  const taSymbols = detectedFutures.map(t => FUTURES_TO_SYMBOL[t]).filter(Boolean);
+
+  const [futures, markets, portfolioContext, ...taResults] = await Promise.all([
+    getFuturesData(),
+    getAllIndices(),
+    getUserPortfolioContext(req.user?.id),
+    ...taSymbols.map(sym => getTechnicalAnalysis(sym)),
+  ]);
+
+  addConversationMessage(req.user?.id, 'user', message);
+
+  const futuresContext = futures.map(f => `${f.name}: ${f.val} (${f.chg})`).join(', ');
+  const marketContext = markets.slice(0, 6).map(m => `${m.name}: ${m.val} (${m.chg})`).join(', ');
+  const wisdom = FUTURES_WISDOM[Math.floor(Math.random() * FUTURES_WISDOM.length)];
+  const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
+  const conversationHistory = getConversationHistory(req.user?.id);
+  const conversationBlock = formatConversationHistory(conversationHistory);
+  const techBlock = taResults.filter(Boolean).map(ta => `ANÁLISIS TÉCNICO REAL (${ta.symbol}):\n${formatTechnicalContext(ta)}`).join('\n\n');
+
+  const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets.`;
+
+  const aiPayload = {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 2000,
+    temperature: 0.7,
+    system: FUTURES_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  };
+
+  let fullText = '';
+
+  const wisdomSent = `data: ${JSON.stringify({ type: 'wisdom', wisdom })}\n\n`;
+  res.write(wisdomSent);
+
+  await callAIStream(aiPayload,
+    (token) => {
+      fullText += token;
+      res.write(`data: ${JSON.stringify({ type: 'token', token })}\n\n`);
+    },
+    async (result) => {
+      if (result?.content?.[0]?.text) {
+        addConversationMessage(req.user?.id, 'ai', result.content[0].text);
+
+        const autoSignal = extractSignalFromResponse(result.content[0].text, detectedFutures);
+        let signalId = null;
+        if (autoSignal) {
+          signalId = await autoSaveSignal(req.user?.id, autoSignal);
+        }
+
+        res.write(`data: ${JSON.stringify({
+          type: 'done',
+          wisdom,
+          autoSignal: autoSignal ? { ...autoSignal, id: signalId } : null,
+          technicalAnalysis: taResults.filter(Boolean).map(ta => ({
+            symbol: ta.symbol, rsi: ta.rsi, macd: ta.macd?.macd, sma20: ta.sma?.sma20, sma50: ta.sma?.sma50,
+          })),
+        })}\n\n`);
+      }
+      res.end();
+    }
+  );
 });
 
 router.get('/signals', optionalAuth, async (req, res) => {

@@ -9,6 +9,7 @@ const fs = require('fs');
 
 const config = require('./config');
 const logger = require('./services/logger');
+const { requestLogger, responseLogger } = require('./services/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const aiRoutes = require('./routes/ai');
 const marketRoutes = require('./routes/market');
@@ -25,12 +26,15 @@ const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb, run, get, saveDb } = require('./services/database');
 const { hashPassword } = require('./services/auth');
 const { checkPriceAlerts } = require('./services/alertChecker');
+const { startWebSocket } = require('./services/webSocketService');
 
 const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+app.use(requestLogger);
+app.use(responseLogger);
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -189,11 +193,13 @@ async function startServer() {
     server.listen(config.port, config.host, () => {
       logger.info(`CHESSINVEST running at https://${config.host}:${config.port}`);
     });
+    startWebSocket(server);
   } else {
     server = http.createServer(app);
     server.listen(config.port, config.host, () => {
       logger.info(`CHESSINVEST running at http://${config.host}:${config.port}`);
     });
+    startWebSocket(server);
     if (sslKey || sslCert) {
       logger.warn('SSL configured but certificate files not found — falling back to HTTP');
     }

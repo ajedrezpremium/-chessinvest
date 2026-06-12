@@ -295,4 +295,97 @@ function safeParse(text) {
   }
 }
 
-module.exports = { callAI };
+async function callAIStream(body, onToken, onDone) {
+  if (!config.openRouter.apiKey) {
+    const fallback = await buildFallbackResponse(detectRequestType(body));
+    const text = fallback.data?.content?.[0]?.text || '';
+    for (let i = 0; i < text.length; i += 10) {
+      onToken(text.slice(i, i + 10));
+    }
+    if (onDone) onDone({ content: [{ text }] });
+    return;
+  }
+
+  const type = detectRequestType(body);
+  const markets = await getAllIndices();
+  const enriched = await buildMessages(type, extractPrompt(body), markets);
+
+  const openRouterBody = mapAnthropicToOpenRouter({
+    ...body,
+    system: enriched.system,
+    messages: [{ role: 'user', content: enriched.userMessage }],
+  });
+  openRouterBody.stream = true;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.openRouter.apiKey}`,
+        'HTTP-Referer': config.openRouter.referer,
+        'X-Title': config.openRouter.appName,
+      },
+      body: JSON.stringify(openRouterBody),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      logger.error(`OpenRouter stream error: ${errText}`);
+      const fallback = await buildFallbackResponse(type);
+      const fbText = fallback.data?.content?.[0]?.text || '';
+      onToken(fbText);
+      if (onDone) onDone({ content: [{ text: fbText }], fallback: true });
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed?.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            fullText += delta;
+            onToken(delta);
+          }
+        } catch {
+          // skip malformed JSON lines
+        }
+      }
+    }
+
+    if (onDone) onDone({ content: [{ text: fullText }] });
+  } catch (err) {
+    clearTimeout(timeout);
+    const msg = err.name === 'AbortError' ? 'Stream timed out' : err.message;
+    logger.error(`Stream error: ${msg}`);
+    const fallback = await buildFallbackResponse(type);
+    const fbText = fallback.data?.content?.[0]?.text || '';
+    onToken(fbText);
+    if (onDone) onDone({ content: [{ text: fbText }], fallback: true });
+  }
+}
+
+module.exports = { callAI, callAIStream };
