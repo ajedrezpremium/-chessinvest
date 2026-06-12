@@ -10,6 +10,7 @@ const { optionalAuth } = require('../middleware/auth');
 const { get, all, run } = require('../services/database');
 const { saveDb } = require('../services/database');
 const logger = require('../services/logger');
+const { createNotification } = require('../services/notificationService');
 
 const router = Router();
 
@@ -479,6 +480,10 @@ async function autoSaveSignal(userId, signal) {
     );
     saveDb();
     logger.info(`Auto-signal saved: ${signal.direction} ${signal.asset} (id=${result.lastID})`);
+    createNotification(userId, 'signal',
+      `⚡ ${signal.direction} ${signal.asset}`,
+      `Entry: $${signal.entry_price || '—'} Stop: $${signal.stop_loss || '—'} TP: $${signal.take_profit || '—'}`
+    );
     return result.lastID;
   } catch (err) {
     logger.warn(`Auto-signal save failed: ${err.message}`);

@@ -212,6 +212,40 @@ async function initSchema() {
       message TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     )`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'signal',
+      title TEXT NOT NULL,
+      body TEXT,
+      data TEXT,
+      read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS usage_tracking (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL,
+      tokens_in INTEGER DEFAULT 0,
+      tokens_out INTEGER DEFAULT 0,
+      cost REAL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS password_resets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
     `CREATE TABLE IF NOT EXISTS signal_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -270,6 +304,13 @@ async function initSchema() {
     'CREATE INDEX IF NOT EXISTS idx_signals_date ON signal_history(created_at)',
     'CREATE INDEX IF NOT EXISTS idx_conversation_user_agent ON conversation_history(user_id, agent)',
     'CREATE INDEX IF NOT EXISTS idx_conversation_date ON conversation_history(created_at)',
+    'CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(user_id, read)',
+    'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token)',
+    'CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_tracking(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_tracking(created_at)',
+    'CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token)',
   ];
 
   for (const sql of indexes) {

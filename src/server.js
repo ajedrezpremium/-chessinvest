@@ -21,6 +21,7 @@ const profileRoutes = require('./routes/profile');
 const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
 const stockbrokerRoutes = require('./routes/stockbroker');
+const notificationRoutes = require('./routes/notifications');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb, run, get, saveDb } = require('./services/database');
@@ -36,6 +37,8 @@ app.use(express.json({ limit: '1mb' }));
 app.use(requestLogger);
 app.use(responseLogger);
 
+const { get } = require('./services/database');
+
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: config.isDev ? 120 : 60,
@@ -44,12 +47,33 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, try again later' },
 });
 
+function planKeyGenerator(req) {
+  if (req.user?.id) {
+    const sub = get('SELECT plan FROM subscriptions WHERE user_id = ?', [req.user.id]);
+    req.userPlan = sub?.plan || 'free';
+  }
+  return req.user?.id || req.ip;
+}
+
 const agentLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: config.isDev ? 30 : 15,
+  max: (req) => {
+    if (config.isDev) return 30;
+    return req.userPlan === 'premium' ? 30 : 5;
+  },
+  keyGenerator: planKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiadas solicitudes al agente. Espera un minuto.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos. Espera 15 minutos.' },
+  skipSuccessfulRequests: true,
 });
 
 app.use(limiter);
@@ -82,7 +106,7 @@ app.get('/admin', (_req, res) => {
 
 app.use('/api', aiRoutes);
 app.use('/api/markets', marketRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/analyzer', agentLimiter, analyzerRoutes);
 app.use('/api/subscription', subscriptionRoutes);
@@ -90,6 +114,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stockbroker', agentLimiter, stockbrokerRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api', require('./middleware/usageTracking').trackUsage);
 
 // Test endpoint
 app.get('/api/test', (_req, res) => {
