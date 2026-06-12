@@ -19,6 +19,7 @@ const subscriptionRoutes = require('./routes/subscription');
 const profileRoutes = require('./routes/profile');
 const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
+const stockbrokerRoutes = require('./routes/stockbroker');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb, run, get, saveDb } = require('./services/database');
@@ -46,6 +47,10 @@ app.get('/chessinvestai', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'chessinvestai.html'));
 });
 
+app.get('/stockbroker', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'stockbroker.html'));
+});
+
 app.get('/pricing', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'pricing.html'));
 });
@@ -71,6 +76,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/stockbroker', stockbrokerRoutes);
 
 // Test endpoint
 app.get('/api/test', (_req, res) => {

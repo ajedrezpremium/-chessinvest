@@ -179,6 +179,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .profile-badge{position:absolute;bottom:-2px;right:-2px;font-size:10px;background:var(--bg2);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
 .floating-icon{position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#000;box-shadow:0 4px 20px rgba(0,212,255,0.4);cursor:pointer;transition:all 0.3s;z-index:999;text-decoration:none}
 .floating-icon:hover{transform:scale(1.1);box-shadow:0 6px 30px rgba(0,212,255,0.6)}
+.agent-float{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.agent-float-btn{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.3s;text-decoration:none;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+.agent-float-btn:hover{transform:scale(1.05)}
+.agent-float-btn.chess{background:var(--accent);color:#000}
+.agent-float-btn.chess:hover{box-shadow:0 6px 30px rgba(0,212,255,0.6)}
+.agent-float-btn.stock{background:var(--purple);color:#fff}
+.agent-float-btn.stock:hover{box-shadow:0 6px 30px rgba(179,136,255,0.6)}
 #subscription-sidebar{animation:slideIn 0.3s ease-out}
 @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 </style>
@@ -432,7 +439,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="footer-copy">© 2026 CHESS INVEST — Todos los derechos reservados</div>
 </footer>
 
-<a href="/chessinvestai" class="floating-icon" title="♔ CHESS INVEST AI">♔</a>
+<div class="agent-float">
+  <a href="/stockbroker" class="agent-float-btn stock">⚡ Stockbroker Futures</a>
+  <a href="/chessinvestai" class="agent-float-btn chess">♔ ChessInvest AI</a>
+</div>
 
 </div>
 </div>
