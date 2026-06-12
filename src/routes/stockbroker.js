@@ -2,8 +2,10 @@ const { Router } = require('express');
 const { callAI } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
+const { getTechnicalAnalysis, formatTechnicalContext } = require('../services/technicalAnalysisService');
 const { optionalAuth } = require('../middleware/auth');
-const { get, all } = require('../services/database');
+const { get, all, run } = require('../services/database');
+const { saveDb } = require('../services/database');
 const logger = require('../services/logger');
 
 const router = Router();
@@ -38,27 +40,48 @@ const FUTURES_TICKERS = {
   '6J': { name: 'Japanese Yen', symbol: '6J=F' },
 };
 
-const conversationMemory = new Map();
-const MAX_CONVERSATION_HISTORY = 10;
+const MAX_CONVERSATION_HISTORY = 20;
 
 function getConversationHistory(userId) {
   if (!userId) return [];
-  return conversationMemory.get(userId) || [];
+  try {
+    return all(
+      "SELECT role, message FROM conversation_history WHERE user_id = ? AND agent = 'stockbroker' ORDER BY created_at ASC",
+      [userId]
+    );
+  } catch (err) {
+    logger.warn(`Failed to fetch conversation history: ${err.message}`);
+    return [];
+  }
 }
 
 function addConversationMessage(userId, role, message) {
   if (!userId) return;
-  let history = conversationMemory.get(userId) || [];
-  history.push({ role, message, timestamp: new Date().toISOString() });
-  if (history.length > MAX_CONVERSATION_HISTORY) {
-    history = history.slice(-MAX_CONVERSATION_HISTORY);
+  try {
+    run(
+      "INSERT INTO conversation_history (user_id, role, agent, message) VALUES (?, ?, 'stockbroker', ?)",
+      [userId, role, message.substring(0, 500)]
+    );
+    // Keep only last N messages per user per agent
+    const count = get(
+      "SELECT COUNT(*) as cnt FROM conversation_history WHERE user_id = ? AND agent = 'stockbroker'",
+      [userId]
+    );
+    if (count && count.cnt > MAX_CONVERSATION_HISTORY) {
+      run(
+        "DELETE FROM conversation_history WHERE id IN (SELECT id FROM conversation_history WHERE user_id = ? AND agent = 'stockbroker' ORDER BY created_at ASC LIMIT ?)",
+        [userId, count.cnt - MAX_CONVERSATION_HISTORY]
+      );
+    }
+    saveDb();
+  } catch (err) {
+    logger.warn(`Failed to save conversation message: ${err.message}`);
   }
-  conversationMemory.set(userId, history);
 }
 
 function formatConversationHistory(history) {
   if (!history.length) return '';
-  return '\nHISTORIAL RECIENTE:\n' + history.map((m, i) => `${i + 1}. ${m.role === 'user' ? 'Tú' : 'AI'}: ${m.message.substring(0, 150)}${m.message.length > 150 ? '...' : ''}`).join('\n') + '\n';
+  return '\nHISTORIAL RECIENTE:\n' + history.map((m, i) => `${i + 1}. ${m.role === 'user' ? 'Tú' : 'AI'}: ${m.message.substring(0, 200)}${m.message.length > 200 ? '...' : ''}`).join('\n') + '\n';
 }
 
 async function getUserPortfolioContext(userId) {
@@ -142,6 +165,14 @@ router.get('/futures', async (_req, res) => {
   }
 });
 
+const FUTURES_TO_SYMBOL = {
+  'ES': 'ES=F', 'NQ': 'NQ=F', 'RTY': 'RTY=F', 'YM': 'YM=F',
+  'CL': 'CL=F', 'GC': 'GC=F', 'SI': 'SI=F', 'HG': 'HG=F',
+  'NG': 'NG=F', 'ZB': 'ZB=F', 'ZN': 'ZN=F',
+  '6E': '6E=F', '6B': '6B=F', '6J': '6J=F',
+  'VIX': '^VIX', 'DXY': 'DX-Y.NYB',
+};
+
 router.post('/chat', optionalAuth, async (req, res) => {
   try {
     const { message } = req.body;
@@ -149,10 +180,14 @@ router.post('/chat', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensaje requerido' });
     }
 
-    const [futures, markets, portfolioContext] = await Promise.all([
+    const detectedFutures = extractFutures(message);
+    const taSymbols = detectedFutures.map(t => FUTURES_TO_SYMBOL[t]).filter(Boolean);
+
+    const [futures, markets, portfolioContext, ...taResults] = await Promise.all([
       getFuturesData(),
       getAllIndices(),
       getUserPortfolioContext(req.user?.id),
+      ...taSymbols.map(sym => getTechnicalAnalysis(sym)),
     ]);
 
     const conversationHistory = getConversationHistory(req.user?.id);
@@ -163,9 +198,9 @@ router.post('/chat', optionalAuth, async (req, res) => {
     const wisdom = FUTURES_WISDOM[Math.floor(Math.random() * FUTURES_WISDOM.length)];
     const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
     const conversationBlock = formatConversationHistory(conversationHistory);
-    const detectedFutures = extractFutures(message);
+    const techBlock = taResults.filter(Boolean).map(ta => `ANÁLISIS TÉCNICO REAL (${ta.symbol}):\n${formatTechnicalContext(ta)}`).join('\n\n');
 
-    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}\nSABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Sé específico con niveles de precio, stops y targets. Usa los datos de futuros en tiempo real proporcionados arriba.`;
+    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets.`;
 
     const aiPayload = {
       model: 'claude-sonnet-4-20250514',
@@ -189,11 +224,25 @@ router.post('/chat', optionalAuth, async (req, res) => {
 
     addConversationMessage(req.user?.id, 'ai', aiResponse.content[0].text);
 
+    const autoSignal = extractSignalFromResponse(aiResponse.content[0].text, detectedFutures);
+    let signalId = null;
+    if (autoSignal) {
+      signalId = await autoSaveSignal(req.user?.id, autoSignal);
+    }
+
     res.json({
       response: aiResponse.content[0].text,
       wisdom,
       portfolioAware: portfolioContext ? true : false,
       futuresDetected: detectedFutures.length > 0,
+      technicalAnalysis: taResults.filter(Boolean).map(ta => ({
+        symbol: ta.symbol,
+        rsi: ta.rsi,
+        macd: ta.macd?.macd,
+        sma20: ta.sma?.sma20,
+        sma50: ta.sma?.sma50,
+      })),
+      autoSignal: autoSignal ? { ...autoSignal, id: signalId } : null,
     });
   } catch (err) {
     logger.error(`Stockbroker chat error: ${err.message}`);
@@ -206,6 +255,86 @@ router.post('/chat', optionalAuth, async (req, res) => {
     });
   }
 });
+
+router.get('/signals', optionalAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const signals = await all('SELECT * FROM signal_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?', [req.user?.id || 0, limit]);
+    res.json({ signals });
+  } catch (err) {
+    logger.error(`Signal history error: ${err.message}`);
+    res.json({ signals: [] });
+  }
+});
+
+router.post('/signals', optionalAuth, async (req, res) => {
+  try {
+    const { asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, rationale } = req.body;
+    if (!asset || !direction) return res.status(400).json({ error: 'Asset and direction required' });
+    const result = await run(
+      'INSERT INTO signal_history (user_id, agent, asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, rationale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user?.id || 0, 'stockbroker', asset.toUpperCase(), direction, entry_price || null, stop_loss || null, take_profit || null, score || null, confidence || null, risk_reward || null, rationale || null]
+    );
+    res.status(201).json({ id: result.lastID });
+  } catch (err) {
+    logger.error(`Signal save error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to save signal' });
+  }
+});
+
+function extractSignalFromResponse(text, detectedTickers) {
+  try {
+    const upper = text.toUpperCase();
+    const hasDirection = upper.includes('LARGO') || upper.includes('CORTO');
+    if (!hasDirection) return null;
+
+    const dir = upper.includes('LARGO') ? (upper.includes('CORTO') ? 'NEUTRAL' : 'LARGO') : 'CORTO';
+    if (dir === 'NEUTRAL') return null;
+
+    const assetMatch = detectedTickers?.[0] || text.match(/[A-Z]{2,4}/)?.[0] || 'FUTURO';
+    const entryMatch = text.match(/Entrada[:\s]*\$?([\d,]+\.?\d*)/i);
+    const stopMatch = text.match(/Stop Loss[:\s]*\$?([\d,]+\.?\d*)/i);
+    const tpMatches = [...text.matchAll(/Take Profit\s*\d*[:\s]*\$?([\d,]+\.?\d*)/gi)];
+    const rrMatch = text.match(/Ratio\s*R\/R[:\s]*(\d+\.?\d*):/i);
+    const scoreMatch = text.match(/Score[^:]*:\s*(\d+)/i);
+    const confMatch = text.match(/Confianza[^:]*:\s*(\d+)/i);
+    const lines = text.split('\n').filter(l => l.trim());
+    const rationale = lines.slice(0, 3).join(' ').substring(0, 300);
+
+    return {
+      asset: assetMatch,
+      direction: dir,
+      entry_price: entryMatch ? entryMatch[1].replace(/,/g, '') : null,
+      stop_loss: stopMatch ? stopMatch[1].replace(/,/g, '') : null,
+      take_profit: tpMatches.length > 0 ? tpMatches.map(m => m[1].replace(/,/g, '')).join(', ') : null,
+      score: scoreMatch ? parseInt(scoreMatch[1]) : null,
+      confidence: confMatch ? parseInt(confMatch[1]) : null,
+      risk_reward: rrMatch ? `${rrMatch[1]}:1` : null,
+      rationale: rationale || null,
+    };
+  } catch (err) {
+    logger.warn(`Signal extraction error: ${err.message}`);
+    return null;
+  }
+}
+
+async function autoSaveSignal(userId, signal) {
+  if (!signal || !signal.direction) return null;
+  try {
+    const result = await run(
+      `INSERT INTO signal_history (user_id, agent, asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, rationale)
+       VALUES (?, 'stockbroker', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId || 0, signal.asset, signal.direction, signal.entry_price, signal.stop_loss,
+       signal.take_profit, signal.score, signal.confidence, signal.risk_reward, signal.rationale]
+    );
+    saveDb();
+    logger.info(`Auto-signal saved: ${signal.direction} ${signal.asset} (id=${result.lastID})`);
+    return result.lastID;
+  } catch (err) {
+    logger.warn(`Auto-signal save failed: ${err.message}`);
+    return null;
+  }
+}
 
 function generateFallback(message) {
   return `### ⚡ Análisis de Mercado
@@ -229,3 +358,5 @@ El mercado muestra condiciones mixtas. Recomiendo cautela hasta tener confirmaci
 }
 
 module.exports = router;
+module.exports.extractSignalFromResponse = extractSignalFromResponse;
+module.exports.autoSaveSignal = autoSaveSignal;

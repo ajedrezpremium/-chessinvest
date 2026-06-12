@@ -204,6 +204,32 @@ async function initSchema() {
       sent_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     )`,
+    `CREATE TABLE IF NOT EXISTS conversation_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+      agent TEXT NOT NULL DEFAULT 'stockbroker',
+      message TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS signal_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      agent TEXT NOT NULL DEFAULT 'stockbroker',
+      asset TEXT NOT NULL,
+      direction TEXT NOT NULL,
+      entry_price TEXT,
+      stop_loss TEXT,
+      take_profit TEXT,
+      score INTEGER,
+      confidence INTEGER,
+      risk_reward TEXT,
+      rationale TEXT,
+      result TEXT,
+      exit_price TEXT,
+      closed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
   ];
 
   for (const sql of tables) {
@@ -239,6 +265,11 @@ async function initSchema() {
     'CREATE INDEX IF NOT EXISTS idx_price_alerts_user ON price_alerts(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_ideas_user ON investment_ideas(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_signals_user ON signal_history(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_signals_agent ON signal_history(agent)',
+    'CREATE INDEX IF NOT EXISTS idx_signals_date ON signal_history(created_at)',
+    'CREATE INDEX IF NOT EXISTS idx_conversation_user_agent ON conversation_history(user_id, agent)',
+    'CREATE INDEX IF NOT EXISTS idx_conversation_date ON conversation_history(created_at)',
   ];
 
   for (const sql of indexes) {

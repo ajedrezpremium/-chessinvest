@@ -55,6 +55,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 #send-btn:hover{background:#9c6cff!important}
 #send-btn:disabled{opacity:0.4!important;cursor:not-allowed!important}
 .info-bar{background:rgba(179,136,255,0.05);border:1px solid rgba(179,136,255,0.1);border-radius:10px;padding:10px 14px;margin-top:12px;font-size:12px;color:var(--muted);display:none}
+.signal-alert{background:linear-gradient(135deg,rgba(0,230,118,0.1),rgba(179,136,255,0.1));border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin:8px 0;font-size:13px;line-height:1.6;display:none;animation:fadeIn 0.3s}
+.signal-panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin:12px 0;display:none;max-height:300px;overflow-y:auto}
+.signal-panel.open{display:block}
+.signal-panel .sp-header{padding:12px 16px;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);display:flex;justify-content:space-between}
+.signal-panel .sp-item{padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;display:flex;gap:8px;align-items:center}
+.signal-panel .sp-item:last-child{border-bottom:none}
+.signal-panel .sp-dir{font-weight:600;font-size:11px;padding:2px 8px;border-radius:4px}
+.signal-panel .sp-dir.largo{color:var(--green);background:rgba(0,230,118,0.1)}
+.signal-panel .sp-dir.corto{color:var(--red);background:rgba(255,68,68,0.1)}
+.signal-panel .sp-asset{font-weight:600;color:var(--text)}
+.signal-panel .sp-detail{color:var(--muted);font-size:11px}
+.signal-alert .sig-title{color:var(--accent);font-family:'Space Mono',monospace;font-size:12px;letter-spacing:1px;margin-bottom:6px}
+.signal-alert .sig-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.signal-alert .sig-tag{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;font-family:'Space Mono',monospace}
+.signal-alert .sig-tag.green{border-color:var(--green);color:var(--green)}
+.signal-alert .sig-tag.red{border-color:var(--red);color:var(--red)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 .typing{color:var(--muted);font-size:13px;font-style:italic}
 @media(max-width:600px){.chat-container{padding:10px}.msg{max-width:95%}.welcome{padding:30px 10px}.header{flex-direction:column;gap:10px}.status-bar{font-size:10px;gap:8px}}
 </style>
@@ -64,6 +81,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="logo"><span>⚡</span> STOCKBROKER AI</div>
   <div class="header-actions">
     <span style="font-size:11px;color:var(--muted);font-family:'Space Mono',monospace">FUTURES · ÍNDICES · COMMODITIES</span>
+    <button class="back-btn" onclick="toggleSignals()" style="cursor:pointer">📡 Señales</button>
     <a href="/" class="back-btn">← Dashboard</a>
   </div>
 </div>
@@ -86,6 +104,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
   <div class="info-bar" id="info-bar"></div>
+  <div class="signal-alert" id="signal-alert"></div>
+  <div class="signal-panel" id="signal-panel">
+    <div class="sp-header"><span>📡 SEÑALES RECIENTES</span><span onclick="toggleSignals()" style="cursor:pointer">✕</span></div>
+    <div id="signal-list" style="padding:4px 0"><div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Cargando señales...</div></div>
+  </div>
 </div>
 <script>
 const input=document.getElementById('chat-input');
@@ -156,6 +179,24 @@ async function sendMsg(){
       infoBar.textContent='💡 '+data.insights;
       infoBar.style.display='block';
     }
+    if(data.autoSignal){
+      const sa=document.getElementById('signal-alert');
+      const dirClass=data.autoSignal.direction==='LARGO'?'green':'red';
+      const dirEmoji=data.autoSignal.direction==='LARGO'?'🟢':'🔴';
+      const levels=[data.autoSignal.entry_price ? `Entrada: $${data.autoSignal.entry_price}` : '',
+        data.autoSignal.stop_loss ? `Stop: $${data.autoSignal.stop_loss}` : '',
+        data.autoSignal.take_profit ? `TP: $${data.autoSignal.take_profit}` : ''].filter(Boolean).join(' | ');
+      sa.innerHTML=
+        `<div class="sig-title">⚡ SEÑAL AUTOMÁTICA DETECTADA</div>`+
+        `<div><strong>${dirEmoji} ${data.autoSignal.direction} ${data.autoSignal.asset}</strong>`+
+        (data.autoSignal.score?` &middot; Score: ${data.autoSignal.score}/100`:'')+
+        (data.autoSignal.confidence?` &middot; Confianza: ${data.autoSignal.confidence}%`:'')+
+        (data.autoSignal.risk_reward?` &middot; R/R: ${data.autoSignal.risk_reward}`:'')+
+        `</div>`+
+        (levels?`<div class="sig-row">${levels.split(' | ').map(l=>`<span class="sig-tag ${dirClass}">${l}</span>`).join('')}</div>`:'');
+      sa.style.display='block';
+      setTimeout(()=>{sa.style.display='none'},15000);
+    }
   }catch(e){
     removeTyping();
     addMsg('ai','Error de conexión. Verifica tu internet e inténtalo de nuevo.');
@@ -221,6 +262,38 @@ async function updateStatusBar(){
       return `<span class="status-item"><span class="status-dot ${dotClass}"></span> ${f.name}: ${f.val} (${f.chg})</span>`;
     }).join('');
   }catch(e){}
+}
+
+let signalsOpen=false;
+function toggleSignals(){
+  signalsOpen=!signalsOpen;
+  const panel=document.getElementById('signal-panel');
+  panel.classList.toggle('open',signalsOpen);
+  if(signalsOpen)loadSignals();
+}
+async function loadSignals(){
+  const list=document.getElementById('signal-list');
+  try{
+    const res=await fetch('/api/stockbroker/signals?limit=10');
+    const data=await res.json();
+    if(!data.signals?.length){
+      list.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">No hay señales aún</div>';
+      return;
+    }
+    list.innerHTML=data.signals.map(s=>{
+      const dirClass=s.direction?.toLowerCase()||'';
+      const emoji=s.direction==='LARGO'?'🟢':'🔴';
+      const levels=[s.entry_price?`Ent: $${s.entry_price}`:'',s.stop_loss?`Stop: $${s.stop_loss}`:'',s.take_profit?`TP: $${s.take_profit}`:''].filter(Boolean).join(' · ');
+      return `<div class="sp-item">
+        <span class="sp-dir ${dirClass}">${emoji} ${s.direction||'?'}</span>
+        <span class="sp-asset">${s.asset||'?'}</span>
+        <span class="sp-detail">${levels||(s.rationale?s.rationale.substring(0,60):'')}</span>
+        <span class="sp-detail" style="margin-left:auto">${s.score?s.score+'/100':''}</span>
+      </div>`;
+    }).join('');
+  }catch(e){
+    list.innerHTML='<div style="text-align:center;color:var(--red);padding:20px;font-size:13px">Error al cargar señales</div>';
+  }
 }
 
 updateStatusBar();

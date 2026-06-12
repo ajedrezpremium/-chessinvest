@@ -423,4 +423,4 @@ IMPORTANTE: Si generas formularios HTML interactivos (checkboxes, radios, etc), 
   return prompt;
 }
 
-module.exports = { getMultiModalAnalysis, buildMultiModalPrompt };
+module.exports = { getMultiModalAnalysis, buildMultiModalPrompt, calculateChessInvestScore, analyzeSentiment, buildMacroContext };

@@ -52,26 +52,65 @@ function formatChange(change, changePercent) {
   return `${dir}${change.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(1)}%)`;
 }
 
+async function fetchQuote(symbol) {
+  const quote = await yahooFinance.quote(symbol);
+  if (!quote || !quote.regularMarketPrice) return null;
+  return {
+    price: quote.regularMarketPrice,
+    change: quote.regularMarketChange,
+    changePercent: quote.regularMarketChangePercent,
+    source: 'quote',
+  };
+}
+
+async function fetchChartFallback(symbol) {
+  try {
+    const period1 = new Date();
+    period1.setDate(period1.getDate() - 5);
+    const result = await yahooFinance.chart(symbol, {
+      period1: period1.toISOString().split('T')[0],
+      interval: '1d',
+    });
+    if (!result?.quotes?.length) return null;
+    const quotes = result.quotes.filter(q => q.close !== null);
+    if (!quotes.length) return null;
+    const last = quotes[quotes.length - 1];
+    const prev = quotes.length > 1 ? quotes[quotes.length - 2] : last;
+    return {
+      price: last.close,
+      change: last.close - prev.close,
+      changePercent: ((last.close - prev.close) / prev.close) * 100,
+      source: 'chart',
+    };
+  } catch (err) {
+    logger.warn(`Chart fallback also failed for ${symbol}: ${err.message}`);
+    return null;
+  }
+}
+
 async function fetchSingleFuture(symbol) {
   const cacheKey = `futures:${symbol}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
+  let result = null;
   try {
-    const quote = await yahooFinance.quote(symbol);
-    if (!quote || !quote.regularMarketPrice) return null;
-
-    const result = {
-      price: quote.regularMarketPrice,
-      change: quote.regularMarketChange,
-      changePercent: quote.regularMarketChangePercent,
-    };
-    cache.set(cacheKey, result, CACHE_TTL_MS);
-    return result;
+    result = await fetchQuote(symbol);
   } catch (err) {
-    logger.warn(`Yahoo Finance futures fetch failed for ${symbol}: ${err.message}`);
+    logger.warn(`Quote failed for ${symbol}: ${err.message}. Trying chart fallback...`);
+  }
+
+  if (!result) {
+    result = await fetchChartFallback(symbol);
+  }
+
+  if (!result) {
+    logger.warn(`All data sources failed for ${symbol}. Using hardcoded fallback.`);
     return null;
   }
+
+  cache.set(cacheKey, { price: result.price, change: result.change, changePercent: result.changePercent }, CACHE_TTL_MS);
+  return result;
 }
 
 async function getFuturesData() {
