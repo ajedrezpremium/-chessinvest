@@ -55,24 +55,42 @@ async function callOpenRouter(body, type, markets) {
     messages: [{ role: 'user', content: enriched.userMessage }],
   });
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.openRouter.apiKey}`,
-      'HTTP-Referer': config.openRouter.referer,
-      'X-Title': config.openRouter.appName,
-    },
-    body: JSON.stringify(openRouterBody),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  let response;
+  try {
+    response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.openRouter.apiKey}`,
+        'HTTP-Referer': config.openRouter.referer,
+        'X-Title': config.openRouter.appName,
+      },
+      body: JSON.stringify(openRouterBody),
+      signal: controller.signal,
+    });
+  } catch (fetchErr) {
+    clearTimeout(timeout);
+    const msg = fetchErr.name === 'AbortError' ? 'OpenRouter request timed out after 25s' : `OpenRouter network error: ${fetchErr.message}`;
+    logger.error(msg);
+    return { status: 503, data: { error: msg } };
+  }
+  clearTimeout(timeout);
 
   const text = await response.text();
   let parsed = safeParse(text);
 
   if (!response.ok) {
-    const errorMsg = parsed?.error?.message || parsed?.error || 'OpenRouter request failed';
+    const errorMsg = parsed?.error?.message || parsed?.error || `OpenRouter error (${response.status})`;
     logger.error(`OpenRouter error: ${errorMsg}`);
     return { status: response.status, data: { error: errorMsg } };
+  }
+
+  if (!parsed) {
+    logger.error('OpenRouter returned unparseable response');
+    return { status: 502, data: { error: 'Invalid response from AI provider' } };
   }
 
   const normalized = mapOpenRouterToAnthropic(parsed);

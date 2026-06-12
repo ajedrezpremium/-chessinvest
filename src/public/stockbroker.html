@@ -49,6 +49,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .input-actions{display:flex;gap:6px}
 .input-actions button{background:var(--bg2);color:var(--muted);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;width:48px;height:48px}
 .input-actions button:hover{color:var(--accent);border-color:var(--accent)}
+.input-actions button.recording{background:var(--red);color:#fff;border-color:var(--red);animation:pulse-btn 1s infinite}
+@keyframes pulse-btn{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 #send-btn{background:var(--accent)!important;color:#000!important;font-weight:600;width:auto!important;padding:12px 20px!important;font-size:14px!important}
 #send-btn:hover{background:#9c6cff!important}
 #send-btn:disabled{opacity:0.4!important;cursor:not-allowed!important}
@@ -66,14 +68,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 <div class="status-bar" id="status-bar">
-  <span class="status-item"><span class="status-dot green"></span> VIX: 14.2</span>
-  <span class="status-item"><span class="status-dot yellow"></span> DXY: 104.5</span>
-  <span class="status-item"><span class="status-dot green"></span> US10Y: 4.35%</span>
-  <span class="status-item"><span class="status-dot green"></span> OR: $2,340</span>
-  <span class="status-item"><span class="status-dot green"></span> WTI: $78.4</span>
-  <span class="status-item"><span class="status-dot red"></span> BTC: $67,200</span>
-  <span class="status-item">SPX: 6,025 (+0.3%)</span>
-  <span class="status-item">NDX: 19,450 (+0.5%)</span>
+  <span class="status-item">Cargando datos...</span>
 </div>
 <div class="chat-container">
   <div class="messages" id="messages">
@@ -86,6 +81,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="input-area">
     <textarea id="chat-input" placeholder="Analiza ES, petróleo, oro, VIX, o pregunta sobre estrategias de futuros..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
     <div class="input-actions">
+      <button id="mic-btn" onclick="toggleVoiceInput()" title="Input por voz">🎤</button>
       <button id="send-btn" onclick="sendMsg()">Enviar</button>
     </div>
   </div>
@@ -169,10 +165,66 @@ async function sendMsg(){
   input.focus();
 }
 
+const micBtn=document.getElementById('mic-btn');
+
 input.addEventListener('input',()=>{
   input.style.height='auto';
   input.style.height=Math.min(input.scrollHeight,120)+'px';
 });
+
+let isListening=false;
+let recognition=null;
+
+function initSpeechRecognition(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition)return null;
+  const rec=new SpeechRecognition();
+  rec.continuous=false;
+  rec.interimResults=true;
+  rec.lang='es-ES';
+  rec.onresult=(event)=>{
+    let final='';
+    for(let i=event.resultIndex;i<event.results.length;i++){
+      if(event.results[i].isFinal)final+=event.results[i][0].transcript;
+    }
+    if(final){input.value=final.trim();input.style.height='auto';input.style.height=Math.min(input.scrollHeight,120)+'px';}
+  };
+  rec.onend=()=>{isListening=false;micBtn.classList.remove('recording');};
+  rec.onerror=()=>{isListening=false;micBtn.classList.remove('recording');};
+  return rec;
+}
+
+function toggleVoiceInput(){
+  if(isListening){
+    if(recognition)recognition.stop();
+    isListening=false;
+    micBtn.classList.remove('recording');
+    return;
+  }
+  if(!recognition){
+    recognition=initSpeechRecognition();
+    if(!recognition){alert('Tu navegador no soporta reconocimiento de voz.');return;}
+  }
+  recognition.start();
+  isListening=true;
+  micBtn.classList.add('recording');
+}
+
+async function updateStatusBar(){
+  try{
+    const res=await fetch('/api/stockbroker/futures');
+    const data=await res.json();
+    if(!data.futures?.length)return;
+    const bar=document.getElementById('status-bar');
+    bar.innerHTML=data.futures.filter(f=>['vix','dxy','us10y','gold','wti','btc','spx','ndx'].includes(f.id)).map(f=>{
+      const dotClass=f.dir==='up'?'green':f.dir==='down'?'red':'yellow';
+      return `<span class="status-item"><span class="status-dot ${dotClass}"></span> ${f.name}: ${f.val} (${f.chg})</span>`;
+    }).join('');
+  }catch(e){}
+}
+
+updateStatusBar();
+setInterval(updateStatusBar,60000);
 </script>
 </body>
 </html>

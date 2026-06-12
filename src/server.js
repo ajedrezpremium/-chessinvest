@@ -39,6 +39,15 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests, try again later' },
 });
+
+const agentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.isDev ? 30 : 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes al agente. Espera un minuto.' },
+});
+
 app.use(limiter);
 
 app.use(express.static(path.resolve(__dirname, 'public')));
@@ -71,12 +80,12 @@ app.use('/api', aiRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
-app.use('/api/analyzer', analyzerRoutes);
+app.use('/api/analyzer', agentLimiter, analyzerRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/stockbroker', stockbrokerRoutes);
+app.use('/api/stockbroker', agentLimiter, stockbrokerRoutes);
 
 // Test endpoint
 app.get('/api/test', (_req, res) => {
