@@ -3,6 +3,7 @@ const { callAI, callAIStream } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
 const { getTechnicalAnalysis, formatTechnicalContext } = require('../services/technicalAnalysisService');
+const { fetchEconomicCalendar, formatCalendarContext } = require('../services/economicCalendar');
 const { optionalAuth } = require('../middleware/auth');
 const { get, all, run } = require('../services/database');
 const { saveDb } = require('../services/database');
@@ -152,6 +153,8 @@ REGLAS:
 3. Priorizar preservación de capital.
 4. Explicar cada recomendación con razonamiento probabilístico.
 5. No sobreoperar. Si no hay oportunidad clara, decirlo.
+6. Usa el CALENDARIO ECONÓMICO proporcionado para contextualizar tu análisis. Eventos como Fed, CPI, NFP pueden cambiar la dirección del mercado drásticamente.
+7. Si hay un evento HIGH impact cerca (🔴 HOY o ⚠️ MAÑANA), recomienda cautela y ajusta stops.
 
 IMPORTANTE: Si generas listas interactivas con checkboxes, incluye siempre un botón para cerrar.`;
 
@@ -183,10 +186,11 @@ router.post('/chat', optionalAuth, async (req, res) => {
     const detectedFutures = extractFutures(message);
     const taSymbols = detectedFutures.map(t => FUTURES_TO_SYMBOL[t]).filter(Boolean);
 
-    const [futures, markets, portfolioContext, ...taResults] = await Promise.all([
+    const [futures, markets, portfolioContext, calendar, ...taResults] = await Promise.all([
       getFuturesData(),
       getAllIndices(),
       getUserPortfolioContext(req.user?.id),
+      fetchEconomicCalendar(),
       ...taSymbols.map(sym => getTechnicalAnalysis(sym)),
     ]);
 
@@ -199,8 +203,9 @@ router.post('/chat', optionalAuth, async (req, res) => {
     const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
     const conversationBlock = formatConversationHistory(conversationHistory);
     const techBlock = taResults.filter(Boolean).map(ta => `ANÁLISIS TÉCNICO REAL (${ta.symbol}):\n${formatTechnicalContext(ta)}`).join('\n\n');
+    const calendarBlock = formatCalendarContext(calendar);
 
-    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets.`;
+    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets. El CALENDARIO ECONÓMICO arriba muestra los eventos macro que impactan los mercados. Tenlos en cuenta en tu análisis.`;
 
     const aiPayload = {
       model: 'claude-sonnet-4-20250514',
@@ -270,10 +275,11 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
   const detectedFutures = extractFutures(message);
   const taSymbols = detectedFutures.map(t => FUTURES_TO_SYMBOL[t]).filter(Boolean);
 
-  const [futures, markets, portfolioContext, ...taResults] = await Promise.all([
+  const [futures, markets, portfolioContext, calendar, ...taResults] = await Promise.all([
     getFuturesData(),
     getAllIndices(),
     getUserPortfolioContext(req.user?.id),
+    fetchEconomicCalendar(),
     ...taSymbols.map(sym => getTechnicalAnalysis(sym)),
   ]);
 
@@ -286,8 +292,9 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
   const conversationHistory = getConversationHistory(req.user?.id);
   const conversationBlock = formatConversationHistory(conversationHistory);
   const techBlock = taResults.filter(Boolean).map(ta => `ANÁLISIS TÉCNICO REAL (${ta.symbol}):\n${formatTechnicalContext(ta)}`).join('\n\n');
+  const calendarBlock = formatCalendarContext(calendar);
 
-  const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets.`;
+  const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets. El CALENDARIO ECONÓMICO arriba muestra los eventos macro que impactan los mercados. Tenlos en cuenta en tu análisis.`;
 
   const aiPayload = {
     model: 'claude-sonnet-4-20250514',

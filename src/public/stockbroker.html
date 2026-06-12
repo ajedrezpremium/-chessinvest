@@ -335,7 +335,9 @@ function initWebSocket(){
           const bar=document.getElementById('status-bar');
           bar.innerHTML=msg.data.filter(f=>['vix','dxy','us10y','gold','wti','btc','spx','ndx'].includes(f.id)).map(f=>{
             const dotClass=f.dir==='up'?'green':f.dir==='down'?'red':'yellow';
-            return `<span class="status-item"><span class="status-dot ${dotClass}"></span> ${f.name}: ${f.val} (${f.chg})</span>`;
+            const oi=f.openInterest?' OI:'+f.openInterest.toLocaleString():'';
+            const vol=f.volume?' Vol:'+f.volume.toLocaleString():'';
+            return `<span class="status-item"><span class="status-dot ${dotClass}"></span> ${f.name}: ${f.val} (${f.chg})${oi}${vol}</span>`;
           }).join('');
         }
       }catch(e){}

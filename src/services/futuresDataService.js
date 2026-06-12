@@ -2,6 +2,7 @@ const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ queue: { concurrency: 2 }, suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 const logger = require('./logger');
 const { cache } = require('./cache');
+const { fetchAlphaVantage } = require('./dataProvider');
 
 const CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -59,6 +60,8 @@ async function fetchQuote(symbol) {
     price: quote.regularMarketPrice,
     change: quote.regularMarketChange,
     changePercent: quote.regularMarketChangePercent,
+    openInterest: quote.openInterest || quote.regularMarketVolume || null,
+    volume: quote.regularMarketVolume || null,
     source: 'quote',
   };
 }
@@ -105,6 +108,11 @@ async function fetchSingleFuture(symbol) {
   }
 
   if (!result) {
+    result = await fetchAlphaVantage(symbol);
+    if (result) logger.info(`Alpha Vantage fallback succeeded for ${symbol}`);
+  }
+
+  if (!result) {
     logger.warn(`All data sources failed for ${symbol}. Using hardcoded fallback.`);
     return null;
   }
@@ -133,6 +141,8 @@ async function getFuturesData() {
           price: quote.price,
           change: quote.change,
           changePercent: quote.changePercent,
+          openInterest: quote.openInterest,
+          volume: quote.volume,
         };
       } catch (err) {
         return { ...FALLBACK_DATA[f.id], id: f.id, name: f.name, symbol: f.symbol };
