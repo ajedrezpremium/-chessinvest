@@ -188,6 +188,29 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .agent-float-btn.stock:hover{box-shadow:0 6px 30px rgba(179,136,255,0.6)}
 .theme-toggle{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:all 0.2s}
 .theme-toggle:hover{color:var(--accent);border-color:var(--accent)}
+.notif-bell{position:relative;background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.2s;flex-shrink:0}
+.notif-bell:hover{color:var(--accent);border-color:var(--accent)}
+.notif-bell.has-unread{color:var(--amber);border-color:rgba(255,179,0,0.4);animation:bellShake 1.5s infinite}
+@keyframes bellShake{0%,100%{transform:rotate(0)}10%,30%{transform:rotate(8deg)}20%,40%{transform:rotate(-8deg)}50%,70%{transform:rotate(4deg)}60%,80%{transform:rotate(-4deg)}}
+.notif-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-family:'Space Mono',monospace;box-shadow:0 0 6px rgba(255,68,68,0.5);display:none}
+.notif-dropdown{position:absolute;top:100%;right:0;width:340px;max-height:400px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:200;display:none;overflow:hidden;margin-top:6px}
+.notif-dropdown-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
+.notif-dropdown-header h4{font-size:12px;color:var(--accent);font-family:'Space Mono',monospace;letter-spacing:1px}
+.notif-mark-all{font-size:10px;color:var(--muted);cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--bg3);border:none;font-family:'DM Sans',sans-serif;transition:all 0.2s}
+.notif-mark-all:hover{color:var(--accent);background:var(--bg4)}
+.notif-list{overflow-y:auto;max-height:340px}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.2s;display:flex;gap:10px;align-items:flex-start}
+.notif-item:hover{background:var(--bg3)}
+.notif-item.unread{background:rgba(0,212,255,0.05);border-left:2px solid var(--accent)}
+.notif-item.read{opacity:0.6}
+.notif-item:last-child{border-bottom:none}
+.notif-icon{font-size:18px;width:24px;text-align:center;flex-shrink:0;margin-top:2px}
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notif-body-txt{font-size:11px;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.notif-time{font-size:9px;color:var(--muted);margin-top:4px;font-family:'Space Mono',monospace}
+.notif-empty{padding:30px;text-align:center;color:var(--muted);font-size:12px}
+.notif-wrapper{position:relative}
 [data-theme="light"]{--bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8ecf0;--bg4:#dde1e6;--text:#1a1a2e;--muted:#6b7280;--border:rgba(0,0,0,0.1);--card-border:rgba(0,0,0,0.08)}
 #subscription-sidebar{animation:slideIn 0.3s ease-out}
 @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
@@ -197,7 +220,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <div class="topbar">
   <div class="logo">♔ CHESS INVEST</div>
   <div style="display:flex;align-items:center;gap:16px">
-    <div class="clock"><div class="live-dot"></div><span id="clock-time">--:--:--</span> <span style="color:var(--border-color)">|</span> <span id="clock-date" style="color:var(--muted)"></span> <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" style="margin-left:8px">☀️</button></div>
+    <div class="clock"><div class="live-dot"></div><span id="clock-time">--:--:--</span> <span style="color:var(--border-color)">|</span> <span id="clock-date" style="color:var(--muted)"></span> <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" style="margin-left:8px">☀️</button>
+    <div class="notif-wrapper">
+      <div class="notif-bell" id="notif-bell" onclick="toggleNotifications()" title="Notificaciones">
+        🔔
+        <span class="notif-badge" id="notif-badge">0</span>
+      </div>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header">
+          <h4>🔔 NOTIFICACIONES</h4>
+          <button class="notif-mark-all" onclick="markAllNotificationsRead()">✓ Marcar todas leídas</button>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">Cargando...</div>
+        </div>
+      </div>
+    </div></div>
 <div id="user-menu" style="display:none">
   <a href="/profile" id="profile-btn" class="profile-btn free" title="Mi Perfil">
     <span class="profile-avatar" id="profile-avatar">?</span>
@@ -1255,6 +1293,94 @@ updateClock();
 setInterval(updateClock,1000);
 setInterval(()=>{renderMarkets();},5*60*1000);
 checkAuth();
+pollNotifications();
+setInterval(pollNotifications, 30000);
+
+function pollNotifications(){
+  if(!getToken())return;
+  apiFetch('/api/notifications?limit=5').then(d=>{
+    const badge=document.getElementById('notif-badge');
+    const bell=document.getElementById('notif-bell');
+    if(d.unread>0){
+      badge.textContent=d.unread>99?'99+':d.unread;
+      badge.style.display='flex';
+      bell.classList.add('has-unread');
+    }else{
+      badge.style.display='none';
+      bell.classList.remove('has-unread');
+    }
+    if(document.getElementById('notif-dropdown').style.display==='block')
+      renderNotifications(d.notifications);
+  }).catch(()=>{});
+}
+
+function renderNotifications(notifs){
+  const list=document.getElementById('notif-list');
+  if(!notifs||notifs.length===0){
+    list.innerHTML='<div class="notif-empty">No hay notificaciones</div>';
+    return;
+  }
+  list.innerHTML=notifs.map(n=>{
+    const icons={signal:'📊',alert:'⚠️',system:'⚙️',recommendation:'💡',info:'ℹ️'};
+    const icon=icons[n.type]||'🔔';
+    const ago=timeAgo(n.created_at);
+    return `<div class="notif-item ${n.read?'read':'unread'}" onclick="clickNotification(${n.id},'${(n.body||'').replace(/'/g,"\\'")}')">
+      <div class="notif-icon">${icon}</div>
+      <div class="notif-body">
+        <div class="notif-title">${n.title}</div>
+        ${n.body?'<div class="notif-body-txt">'+n.body+'</div>':''}
+        <div class="notif-time">${ago}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function timeAgo(dateStr){
+  const diff=Date.now()-new Date(dateStr+'Z').getTime();
+  const mins=Math.floor(diff/60000);
+  if(mins<1)return 'ahora';
+  if(mins<60)return mins+'min';
+  const hrs=Math.floor(mins/60);
+  if(hrs<24)return hrs+'h';
+  const days=Math.floor(hrs/24);
+  return days+'d';
+}
+
+async function toggleNotifications(){
+  const dd=document.getElementById('notif-dropdown');
+  if(dd.style.display==='block'){dd.style.display='none';return;}
+  dd.style.display='block';
+  try{
+    const d=await apiFetch('/api/notifications?limit=20');
+    renderNotifications(d.notifications);
+  }catch{dd.querySelector('.notif-list').innerHTML='<div class="notif-empty">Error al cargar</div>';}
+}
+
+async function clickNotification(id,body){
+  try{
+    await apiFetch('/api/notifications/'+id+'/read',{method:'POST'});
+    pollNotifications();
+  }catch{}
+}
+
+async function markAllNotificationsRead(){
+  try{
+    await apiFetch('/api/notifications/read-all',{method:'POST'});
+    document.querySelectorAll('.notif-item.unread').forEach(el=>{
+      el.classList.remove('unread');
+      el.classList.add('read');
+    });
+    document.getElementById('notif-badge').style.display='none';
+    document.getElementById('notif-bell').classList.remove('has-unread');
+  }catch{}
+}
+
+document.addEventListener('click',function(e){
+  const dd=document.getElementById('notif-dropdown');
+  const bell=document.getElementById('notif-bell');
+  if(dd.style.display==='block'&&!bell.contains(e.target)&&!dd.contains(e.target))
+    dd.style.display='none';
+});
 
 const NEWS_ITEMS = [
   {text:'<strong>S&P 500</strong> alcanza máximos históricos impulsado por tecnología',dir:'up'},
