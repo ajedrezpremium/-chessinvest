@@ -65,11 +65,11 @@ router.post('/login', (req, res) => {
   }
 });
 
-router.post('/refresh', (req, res) => {
+router.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
 
-  const result = refreshAccessToken(refreshToken);
+  const result = await refreshAccessToken(refreshToken);
   if (!result) return res.status(401).json({ error: 'Invalid or expired refresh token' });
 
   res.json({ token: result.accessToken, user: result.user });
