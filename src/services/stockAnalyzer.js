@@ -1,5 +1,4 @@
-const YahooFinance = require('yahoo-finance2').default;
-const yahooFinance = new YahooFinance({ queue: { concurrency: 2 }, suppressNotices: ['yahooSurvey', 'ripHistorical'] });
+const yahooFinance = require('./yahooFinanceClient');
 const logger = require('./logger');
 
 async function fetchStockData(ticker) {

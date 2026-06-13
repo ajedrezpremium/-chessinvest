@@ -255,7 +255,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="news-ticker-track" id="news-ticker-track"></div>
   </div>
   <div id="market-detail-panel" style="display:none">
-    <div class="section-title">Análisis Detallado <span id="detail-market-name" style="font-size:12px;color:var(--muted)"></span></div>
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Análisis Detallado <span id="detail-market-name" style="font-size:12px;color:var(--muted)"></span></span>
+      <button class="btn btn-outline" onclick="document.getElementById('market-detail-panel').style.display='none';document.getElementById('constituents-container').style.display='none'" style="padding:4px 12px;font-size:11px">✕ Cerrar</button>
+    </div>
+    <div id="constituents-container" style="display:none;margin-bottom:16px"></div>
     <div class="ai-panel">
       <div class="ai-header">
         <div class="ai-tag">&#9670; ANÁLISIS IA</div>
@@ -556,7 +560,25 @@ function drawSparkline(m){
   ctx.fillStyle=color+'22';ctx.fill();
 }
 
-function selectMarket(id){
+async function analyzeConstituent(ticker,name){
+  if(!selectedMarket)return;
+  const txt=document.getElementById('market-analysis-text');
+  const out=document.getElementById('market-analysis-out');
+  out.style.display='block';
+  txt.innerHTML='<div class="spinner"></div> Analizando '+ticker+'...</div>';
+  try{
+    const today=new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const data=await callAnthropic({
+      model:'claude-sonnet-4-20250514',max_tokens:800,
+      system:'Eres un analista financiero experto. Responde siempre en español. Sé conciso.',
+      messages:[{role:'user',content:`Analiza la acción ${ticker} (${name}) del índice ${selectedMarket.name} hoy ${today}. Dame en 3-4 líneas: 1) Situación técnica, 2) Perspectiva, 3) Niveles clave.`}]
+    });
+    out.style.display='none';
+    txt.innerHTML=data.content[0].text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--accent)">$1</strong>');
+  }catch(e){out.style.display='none';txt.innerHTML='<span style="color:var(--red)">Error al analizar '+ticker+'</span>';}
+}
+
+async function selectMarket(id){
   selectedMarket=marketsData.find(m=>m.id===id);
   if(!selectedMarket)return;
   const panel=document.getElementById('market-detail-panel');
@@ -564,6 +586,15 @@ function selectMarket(id){
   document.getElementById('detail-market-name').textContent='— '+selectedMarket.name;
   document.getElementById('market-analysis-text').innerHTML='';
   document.getElementById('market-analysis-out').style.display='none';
+  const ce=document.getElementById('constituents-container');
+  ce.innerHTML='<div class="loading" style="padding:10px"><div class="spinner"></div>Cargando componentes...</div>';
+  ce.style.display='block';
+  try{
+    const r=await fetch('/api/markets/'+id+'/constituents');
+    if(!r.ok){ce.style.display='none';return;}
+    const d=await r.json();
+    ce.innerHTML='<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted);font-family:\'Space Mono\',monospace">COMPONENTES ('+d.total+')</span><button class="btn btn-outline" style="padding:4px 10px;font-size:10px" onclick="document.getElementById(\'constituents-container\').style.display=\'none\'">✕ Cerrar</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;max-height:400px;overflow-y:auto;padding-right:4px">'+d.constituents.map(c=>'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'\'" onclick="analyzeConstituent(\''+c.ticker+'\',\''+c.name+'\')"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600;font-size:13px;font-family:\'Space Mono\',monospace;color:var(--accent)">'+c.ticker+'</span><span style="font-size:10px;color:var(--muted);background:var(--bg2);padding:2px 6px;border-radius:4px">'+c.sector+'</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+c.name+'</div></div>').join('')+'</div>';
+  }catch(e){ce.style.display='none';}
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 

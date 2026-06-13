@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const { getAllIndices, getIndexById, getMarketsByRegion } = require('../services/marketDataService');
+const { getConstituents } = require('../data/indexConstituents');
 const logger = require('../services/logger');
 
 const router = Router();
@@ -25,6 +26,17 @@ router.get('/flat', async (_req, res) => {
   } catch (err) {
     logger.error(`Flat markets error: ${err.message}`);
     res.json({ markets: [] });
+  }
+});
+
+router.get('/:id/constituents', async (req, res) => {
+  try {
+    const data = getConstituents(req.params.id);
+    if (!data) return res.status(404).json({ error: 'No constituents data for this index' });
+    res.json(data);
+  } catch (err) {
+    logger.error(`Constituents error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to load constituents' });
   }
 });
 
