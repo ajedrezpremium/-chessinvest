@@ -1,5 +1,6 @@
 const { run, all, saveDb } = require('./database');
 const logger = require('./logger');
+const { sendNotificationEmail } = require('./emailService');
 
 async function createNotification(userId, type, title, body, data = null) {
   if (!userId) return null;
@@ -10,6 +11,9 @@ async function createNotification(userId, type, title, body, data = null) {
     );
     saveDb();
     logger.info(`Notification created for user ${userId}: ${title}`);
+
+    sendNotificationEmail(userId, type, title, body, data).catch(() => {});
+
     return result.lastID;
   } catch (err) {
     logger.warn(`Failed to create notification: ${err.message}`);
