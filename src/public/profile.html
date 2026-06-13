@@ -566,7 +566,56 @@
 
   <script>
     const API = '/api';
-    let token = localStorage.getItem('chessinvest_token');
+    let refreshPromise = null;
+
+    function getToken() { return localStorage.getItem('chessinvest_token'); }
+    function getRefreshToken() { return localStorage.getItem('chessinvest_refresh'); }
+    function setToken(t) { localStorage.setItem('chessinvest_token', t); }
+    function setRefreshToken(t) { localStorage.setItem('chessinvest_refresh', t); }
+    function clearToken() { localStorage.removeItem('chessinvest_token'); localStorage.removeItem('chessinvest_refresh'); }
+
+    async function tryRefreshToken() {
+      const rt = getRefreshToken();
+      if (!rt) return false;
+      if (refreshPromise) return refreshPromise;
+      refreshPromise = (async () => {
+        try {
+          const r = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: rt }) });
+          if (!r.ok) throw new Error('Refresh failed');
+          const d = await r.json();
+          setToken(d.token);
+          return true;
+        } catch { clearToken(); return false; }
+        finally { refreshPromise = null; }
+      })();
+      return refreshPromise;
+    }
+
+    async function apiFetchProfile(url, opts) {
+      const doFetch = async () => {
+        const h = { ...opts?.headers, 'Content-Type': 'application/json' };
+        const t = getToken();
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        const res = await fetch(url, { ...opts, headers: h });
+        if (res.status === 401 && getRefreshToken()) {
+          const refreshed = await tryRefreshToken();
+          if (refreshed) {
+            const h2 = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() };
+            const retry = await fetch(url, { ...opts, headers: h2 });
+            if (retry.ok) return retry.json();
+            const rd = await retry.json().catch(() => ({ error: 'Request failed' }));
+            if (!retry.ok) { const e = new Error(rd.error || 'Request failed'); e.status = retry.status; throw e; }
+            return rd;
+          }
+        }
+        const d = await res.json().catch(() => ({ error: 'Invalid response' }));
+        if (!res.ok) { const e = new Error(d.error || 'Request failed'); e.status = res.status; throw e; }
+        return d;
+      };
+      return doFetch();
+    }
+
+    let token = getToken();
     let currentUser = null;
     let subscription = null;
     let selectedAvatar = null;
@@ -625,25 +674,11 @@
       }
 
       try {
-        const [summaryRes, settingsRes, subRes] = await Promise.all([
-          fetch(`${API}/profile/summary`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API}/profile/settings`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API}/subscription/status`, { headers: { Authorization: `Bearer ${token}` } }),
+        const [summary, settings, subData] = await Promise.all([
+          apiFetchProfile(`${API}/profile/summary`),
+          apiFetchProfile(`${API}/profile/settings`).catch(() => ({})),
+          apiFetchProfile(`${API}/subscription/status`).catch(() => ({})),
         ]);
-
-        if (!summaryRes.ok) {
-          console.error('Profile summary failed:', summaryRes.status);
-          if (summaryRes.status === 401) {
-            document.body.innerHTML = '<div style="padding:2rem;text-align:center"><h2>Sesión expirada</h2><p>Tu sesión ha caducado. Por favor, inicia sesión de nuevo.</p><a href="/" class="btn btn-primary">Iniciar Sesión</a></div>';
-            localStorage.removeItem('chessinvest_token');
-            return;
-          }
-          throw new Error(`Server error: ${summaryRes.status}`);
-        }
-
-        const summary = await summaryRes.json();
-        const settings = settingsRes.ok ? await settingsRes.json() : {};
-        const subData = subRes.ok ? await subRes.json() : {};
         
         currentUser = summary.user;
         subscription = summary.subscription;
