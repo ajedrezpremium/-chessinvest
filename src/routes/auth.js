@@ -85,13 +85,20 @@ router.post('/forgot-password', async (req, res) => {
   const user = get('SELECT username FROM users WHERE email = ?', [email]);
   const resetLink = `${process.env.APP_URL || 'https://chessinvest.onrender.com'}/reset-password?token=${token}`;
 
-  await sendEmail(email, 'info', {
+  const sent = await sendEmail(email, 'info', {
     title: 'Recuperación de Contraseña — CHESS INVEST',
     body: `Hola ${user?.username || 'inversor'},\n\nHas solicitado restablecer tu contraseña. Usa este enlace (válido 1 hora):\n\n${resetLink}\n\nSi no solicitaste esto, ignora este mensaje.\n\nCHESS INVEST Team`,
   });
 
-  logger.info(`Password reset email sent to ${email}`);
-  res.json({ ok: true });
+  logger.info(`Password reset ${sent ? 'email sent' : 'email failed'} for ${email}`);
+
+  const { isConfigured } = require('../services/emailService');
+  res.json({
+    ok: true,
+    resetLink: sent ? undefined : resetLink,
+    emailSent: sent,
+    notice: sent ? undefined : 'Email no configurado. Usa este enlace directo (válido 1 hora):',
+  });
 });
 
 router.post('/reset-password', (req, res) => {

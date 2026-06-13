@@ -1026,8 +1026,17 @@ async function handleForgotPassword(){
     });
     const d=await res.json();
     if(!res.ok)throw new Error(d.error);
-    document.getElementById('forgot-step-1').style.display='none';
-    document.getElementById('forgot-step-2').style.display='block';
+    if(d.resetLink){
+      document.getElementById('forgot-step-1').innerHTML=`
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">${d.notice||'Enlace de recuperación:'}</p>
+        <div style="background:var(--bg3);border:1px solid var(--accent);border-radius:8px;padding:12px;word-break:break-all;font-size:11px;color:var(--accent);margin-bottom:12px;font-family:monospace">${d.resetLink}</div>
+        <a href="${d.resetLink}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none">Abrir enlace</a>
+        <div style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center">Válido 1 hora. Si tienes SMTP configurado, también te llegó un email.</div>
+      `;
+    }else{
+      document.getElementById('forgot-step-1').style.display='none';
+      document.getElementById('forgot-step-2').style.display='block';
+    }
   }catch(e){
     err.textContent=e.message;
     err.style.display='block';
