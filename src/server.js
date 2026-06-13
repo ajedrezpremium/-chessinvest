@@ -23,6 +23,8 @@ const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
 const stockbrokerRoutes = require('./routes/stockbroker');
 const notificationRoutes = require('./routes/notifications');
+const newsletterRoutes = require('./routes/newsletter');
+const { generateDailyNewsletter, sendNewsletterToSubscribers } = require('./services/newsletterService');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
 const { openDb, initSchema, closeDb, run, get, saveDb } = require('./services/database');
@@ -116,6 +118,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stockbroker', dailyUsageLimiter, agentLimiter, stockbrokerRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 app.use('/api', require('./middleware/usageTracking').trackUsage);
 
 // Test endpoint
@@ -211,6 +214,24 @@ async function startServer() {
 
   startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
   startJob('price-alert-checker', checkPriceAlerts, 5 * 60 * 1000);
+
+  const msUntil8am = () => {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(8, 0, 0, 0);
+    if (target <= now) target.setDate(target.getDate() + 1);
+    return target.getTime() - now.getTime();
+  };
+
+  setTimeout(() => {
+    startJob('daily-newsletter', async () => {
+      const result = await generateDailyNewsletter();
+      if (result && !result.reused) {
+        await sendNewsletterToSubscribers(result.id);
+      }
+    }, 24 * 60 * 60 * 1000);
+  }, msUntil8am());
+  logger.info(`Scheduler: "daily-newsletter" will start at 08:00 (in ${Math.round(msUntil8am() / 60000)}min)`);
 
   let server;
 

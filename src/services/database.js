@@ -172,6 +172,7 @@ async function initSchema() {
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       theme TEXT NOT NULL DEFAULT 'dark',
       notifications_email INTEGER NOT NULL DEFAULT 1,
+      newsletter_subscribed INTEGER NOT NULL DEFAULT 1,
       notifications_sms INTEGER NOT NULL DEFAULT 0,
       language TEXT NOT NULL DEFAULT 'es',
       timezone TEXT NOT NULL DEFAULT 'Europe/Madrid',
@@ -269,6 +270,15 @@ async function initSchema() {
       closed_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     )`,
+    `CREATE TABLE IF NOT EXISTS newsletters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      summary TEXT,
+      top_tickers TEXT,
+      generated_at TEXT DEFAULT (datetime('now')),
+      sent_count INTEGER DEFAULT 0
+    )`,
   ];
 
   for (const sql of tables) {
@@ -285,6 +295,7 @@ async function initSchema() {
     'ALTER TABLE users ADD COLUMN experience TEXT DEFAULT \'beginner\'',
     'ALTER TABLE users ADD COLUMN avatar TEXT',
     'ALTER TABLE users ADD COLUMN role TEXT DEFAULT \'user\'',
+    'ALTER TABLE user_settings ADD COLUMN newsletter_subscribed INTEGER DEFAULT 1',
   ];
 
   for (const sql of alterStatements) {
@@ -316,6 +327,7 @@ async function initSchema() {
     'CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_tracking(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_tracking(created_at)',
     'CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token)',
+    'CREATE INDEX IF NOT EXISTS idx_newsletters_date ON newsletters(generated_at)',
   ];
 
   for (const sql of indexes) {
