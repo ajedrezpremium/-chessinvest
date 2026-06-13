@@ -1003,8 +1003,18 @@ async function handleForgotPassword(){
   btn.disabled=false;
   btn.textContent='Enviar enlace';
 }
+function showAuthModal(){document.getElementById('auth-modal').style.display='flex';
+  setTimeout(()=>{document.getElementById('auth-email').focus();},100);}
 function hideAuthModal(){document.getElementById('auth-modal').style.display='none';}
 document.getElementById('auth-modal').addEventListener('click',function(e){if(e.target===this)hideAuthModal();});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'){
+    const auth=document.getElementById('auth-modal');
+    if(auth.style.display==='flex')handleAuth();
+    const forgot=document.getElementById('forgot-modal');
+    if(forgot.style.display==='flex'&&document.getElementById('forgot-step-1').style.display!=='none')handleForgotPassword();
+  }
+});
 
 function toggleAuthMode(){
   authMode=authMode==='login'?'register':'login';
