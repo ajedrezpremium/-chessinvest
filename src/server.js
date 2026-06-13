@@ -215,25 +215,24 @@ async function startServer() {
     await initSchema();
     logger.info('Database ready');
 
-    // Auto-seed admin on every startup (idempotent)
+    // Auto-seed users on every startup (idempotent)
     try {
-      const adminEmail = 'ajedrezpremium@gmail.com';
-      const existing = get('SELECT id, role FROM users WHERE email = ?', [adminEmail]);
-      if (!existing) {
-        const hash = hashPassword('Chess2026#');
-        const result = run(
-          "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, 'admin', '👑')",
-          [adminEmail, 'Admin', hash],
-        );
-        run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'premium', 'active']);
-        run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
-        saveDb();
-        logger.info('Admin user auto-seeded: ajedrezpremium@gmail.com');
-      } else if (existing.role !== 'admin') {
-        run("UPDATE users SET role = 'admin', avatar = '👑' WHERE email = ?", [adminEmail]);
-        run("UPDATE subscriptions SET plan = 'premium', status = 'active' WHERE user_id = ?", [existing.id]);
-        saveDb();
-        logger.info('Admin role restored for: ajedrezpremium@gmail.com');
+      const usersToSeed = [
+        { email: 'ajedrezpremium@gmail.com', username: 'Admin', hash: hashPassword('Chess2026#'), role: 'admin', avatar: '👑' },
+        { email: 'chessagencyai@gmail.com', username: 'chessagencyai', hash: hashPassword('Chess2026#'), role: 'user', avatar: '🤖' },
+      ];
+      for (const u of usersToSeed) {
+        const existing = get('SELECT id, role FROM users WHERE email = ?', [u.email]);
+        if (!existing) {
+          const result = run(
+            "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, ?, ?)",
+            [u.email, u.username, u.hash, u.role, u.avatar],
+          );
+          run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, u.role === 'admin' ? 'premium' : 'free', 'active']);
+          run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
+          saveDb();
+          logger.info(`User auto-seeded: ${u.email}`);
+        }
       }
     } catch (err) {
       logger.error(`Admin seed failed: ${err.message}`);

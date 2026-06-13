@@ -2,7 +2,7 @@ const https = require('https');
 const logger = require('./logger');
 
 const FINNHUB_BASE = 'https://finnhub.io/api/v1';
-const API_KEY = process.env.FINNHUB_API_KEY || '';
+const API_KEY = process.env.FINNHUB_API_KEY || 'd8mgle9r01qkiso9mrogd8mgle9r01qkiso9mrp0';
 
 function finnhubRequest(path) {
   return new Promise((resolve, reject) => {
