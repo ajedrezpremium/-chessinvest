@@ -1,4 +1,5 @@
 const yahooFinance = require('./yahooFinanceClient');
+const finnhub = require('./finnhubClient');
 const logger = require('./logger');
 const { cache } = require('./cache');
 const { persistMarketData, loadMarketData } = require('./marketCache');
@@ -149,6 +150,21 @@ async function fetchIndexHistory(symbol) {
   }
 }
 
+async function fetchQuoteWithFallback(symbol) {
+  const quote = await fetchSingleIndex(symbol);
+  if (quote) return quote;
+
+  logger.info(`Yahoo failed for ${symbol}, trying Finnhub...`);
+  const finnhubQuote = await finnhub.fetchQuote(symbol);
+  if (finnhubQuote) {
+    cache.set(`index:${symbol}`, finnhubQuote, CACHE_TTL_MS);
+    logger.info(`Finnhub succeeded for ${symbol}`);
+    return finnhubQuote;
+  }
+
+  return null;
+}
+
 async function getAllIndices() {
   const results = await Promise.allSettled(
     INDICES.map(async (idx) => {
@@ -160,7 +176,7 @@ async function getAllIndices() {
         }
 
         const [quote, history] = await Promise.all([
-          fetchSingleIndex(idx.symbol),
+          fetchQuoteWithFallback(idx.symbol),
           fetchIndexHistory(idx.symbol),
         ]);
 
