@@ -99,6 +99,61 @@ app.get('/profile', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'profile.html'));
 });
 
+app.get('/reset-password', (_req, res) => {
+  res.send(`
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Recuperar Contraseña — CHESS INVEST</title>
+<style>body{margin:0;font-family:'DM Sans',Arial,sans-serif;background:#0a0e1a;color:#e8f4f8;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#111827;border:1px solid rgba(0,212,255,0.15);border-radius:16px;padding:32px;width:360px;max-width:90vw}
+h2{color:#00d4ff;font-family:'Space Mono',monospace;font-size:16px;margin:0 0 16px;text-align:center}
+p{font-size:13px;color:#7a9bb5;margin-bottom:16px;text-align:center}
+input{width:100%;padding:10px 14px;background:#1a2235;border:1px solid rgba(0,212,255,0.15);border-radius:8px;color:#e8f4f8;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:12px}
+input:focus{border-color:#00d4ff}
+.btn{width:100%;padding:10px;background:#00d4ff;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn:hover{background:#00b8d9}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.msg{padding:12px;border-radius:8px;font-size:12px;text-align:center;display:none}
+.msg.ok{background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.3);display:block}
+.msg.err{background:rgba(255,68,68,0.15);color:#ff4444;border:1px solid rgba(255,68,68,0.3);display:block}
+</style></head><body>
+<div class="card">
+<h2>♔ Recuperar Contraseña</h2>
+<div class="msg" id="msg"></div>
+<div id="form">
+<p>Ingresa tu nueva contraseña</p>
+<input type="password" id="pw" placeholder="Nueva contraseña (mín. 6 caracteres)" autocomplete="new-password">
+<button class="btn" id="btn" onclick="reset()">Restablecer</button>
+</div>
+<div id="done" style="display:none;text-align:center;padding:20px">
+<div style="font-size:40px;margin-bottom:12px">✅</div>
+<p style="color:#00e676">Contraseña restablecida</p>
+<a href="/" style="color:#00d4ff;font-size:13px">Ir a CHESS INVEST</a>
+</div>
+</div>
+<script>
+const params=new URLSearchParams(location.search);
+const token=params.get('token');
+if(!token){document.getElementById('form').innerHTML='<p style="color:#ff4444">Enlace inválido o expirado</p>';}
+async function reset(){
+  const pw=document.getElementById('pw').value;
+  if(pw.length<6){document.getElementById('msg').textContent='Mínimo 6 caracteres';document.getElementById('msg').className='msg err';return;}
+  const btn=document.getElementById('btn');
+  btn.disabled=true;btn.textContent='Restableciendo...';
+  try{
+    const r=await fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password:pw})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error);
+    document.getElementById('form').style.display='none';
+    document.getElementById('done').style.display='block';
+  }catch(e){
+    document.getElementById('msg').textContent=e.message;
+    document.getElementById('msg').className='msg err';
+  }
+  btn.disabled=false;btn.textContent='Restablecer';
+}
+</script>
+</body></html>`);
+});
+
 app.get('/analyzer', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'analyzer.html'));
 });

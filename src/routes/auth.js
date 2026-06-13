@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { run, get } = require('../services/database');
 const { hashPassword, verifyPassword, signToken, createTokens, refreshAccessToken, createPasswordReset, resetPassword } = require('../services/auth');
+const { sendEmail } = require('../services/emailService');
 const { requireAuth } = require('../middleware/auth');
 const logger = require('../services/logger');
 
@@ -38,12 +39,12 @@ router.post('/login', (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
+      return res.status(400).json({ error: 'Email/usuario y contraseña requeridos' });
     }
 
-    const user = get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = get('SELECT * FROM users WHERE email = ? OR username = ?', [email, email]);
     if (!user || !verifyPassword(password, user.password_hash)) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Email/usuario o contraseña incorrectos' });
     }
 
     const sub = get('SELECT plan, status FROM subscriptions WHERE user_id = ?', [user.id]);
@@ -74,26 +75,34 @@ router.post('/refresh', (req, res) => {
   res.json({ token: result.accessToken, user: result.user });
 });
 
-router.post('/forgot-password', (req, res) => {
+router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email required' });
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
 
   const token = createPasswordReset(email);
-  if (!token) return res.json({ ok: true }); // Don't reveal if email exists
+  if (!token) return res.json({ ok: true });
 
-  logger.info(`Password reset requested for ${email}`);
+  const user = get('SELECT username FROM users WHERE email = ?', [email]);
+  const resetLink = `${process.env.APP_URL || 'https://chessinvest.onrender.com'}/reset-password?token=${token}`;
+
+  await sendEmail(email, 'info', {
+    title: 'Recuperación de Contraseña — CHESS INVEST',
+    body: `Hola ${user?.username || 'inversor'},\n\nHas solicitado restablecer tu contraseña. Usa este enlace (válido 1 hora):\n\n${resetLink}\n\nSi no solicitaste esto, ignora este mensaje.\n\nCHESS INVEST Team`,
+  });
+
+  logger.info(`Password reset email sent to ${email}`);
   res.json({ ok: true });
 });
 
 router.post('/reset-password', (req, res) => {
   const { token, password } = req.body;
-  if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (!token || !password) return res.status(400).json({ error: 'Token y contraseña requeridos' });
+  if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
 
   const ok = resetPassword(token, password);
-  if (!ok) return res.status(400).json({ error: 'Invalid or expired reset token' });
+  if (!ok) return res.status(400).json({ error: 'Token inválido o expirado' });
 
-  res.json({ ok: true });
+  res.json({ ok: true, message: 'Contraseña restablecida correctamente' });
 });
 
 router.get('/me', requireAuth, (req, res) => {

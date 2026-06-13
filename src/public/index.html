@@ -145,6 +145,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .modal h2{font-size:15px;color:var(--accent);font-family:'Space Mono',monospace;margin-bottom:16px;text-align:center}
 .modal input{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;outline:none}
 .modal input:focus{border-color:var(--accent)}
+.modal .pw-wrap{position:relative}
+.modal .pw-wrap input{padding-right:40px}
+.modal .pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--muted);user-select:none}
+.modal .pw-toggle:hover{color:var(--accent)}
 .modal .btn{width:100%;margin-top:4px}
 .modal-toggle{text-align:center;margin-top:12px;font-size:12px;color:var(--muted);cursor:pointer}
 .modal-toggle:hover{color:var(--accent)}
@@ -252,11 +256,31 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="modal" id="auth-inner">
     <h2 id="auth-title">Iniciar Sesión</h2>
     <div class="modal-error" id="auth-error"></div>
-    <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
+    <input type="text" id="auth-email" placeholder="Email o usuario" autocomplete="email">
     <input type="text" id="auth-username" placeholder="Nombre de usuario" style="display:none" autocomplete="username">
-    <input type="password" id="auth-password" placeholder="Contraseña" autocomplete="current-password">
+    <div class="pw-wrap">
+      <input type="password" id="auth-password" placeholder="Contraseña" autocomplete="current-password">
+      <span class="pw-toggle" id="auth-pw-toggle" onclick="togglePasswordVisibility()">👁️</span>
+    </div>
     <button class="btn" id="auth-submit-btn" onclick="handleAuth()">Ingresar</button>
+    <div id="auth-forgot" style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted);cursor:pointer" onclick="showForgotPassword()">¿Olvidaste tu contraseña?</div>
     <div class="modal-toggle" id="auth-toggle" onclick="toggleAuthMode()">¿No tienes cuenta? Regístrate</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="forgot-modal" style="display:none">
+  <div class="modal">
+    <h2 id="forgot-title">Recuperar Contraseña</h2>
+    <div class="modal-error" id="forgot-error"></div>
+    <div id="forgot-step-1">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Te enviaremos un enlace para restablecer tu contraseña</p>
+      <input type="email" id="forgot-email" placeholder="Tu email registrado">
+      <button class="btn" id="forgot-submit-btn" onclick="handleForgotPassword()">Enviar enlace</button>
+    </div>
+    <div id="forgot-step-2" style="display:none">
+      <div style="text-align:center;padding:20px;font-size:14px;color:var(--green)">📧 Enlace enviado. Revisa tu email.</div>
+    </div>
+    <div class="modal-toggle" onclick="hideForgotPassword()" style="margin-top:12px">← Volver a inicio de sesión</div>
   </div>
 </div>
 
@@ -933,8 +957,52 @@ async function apiFetch(url,opts){
   return d;
 }
 
-let authMode='login';
-function showAuthModal(){document.getElementById('auth-modal').style.display='flex';}
+function togglePasswordVisibility(){
+  const pw=document.getElementById('auth-password');
+  const toggle=document.getElementById('auth-pw-toggle');
+  if(pw.type==='password'){pw.type='text';toggle.textContent='🙈'}
+  else{pw.type='password';toggle.textContent='👁️'}
+}
+
+function showForgotPassword(){
+  document.getElementById('auth-modal').style.display='none';
+  document.getElementById('forgot-modal').style.display='flex';
+  document.getElementById('forgot-step-1').style.display='block';
+  document.getElementById('forgot-step-2').style.display='none';
+  document.getElementById('forgot-error').style.display='none';
+  document.getElementById('forgot-email').value='';
+}
+
+function hideForgotPassword(){
+  document.getElementById('forgot-modal').style.display='none';
+  document.getElementById('auth-modal').style.display='flex';
+}
+
+document.getElementById('forgot-modal').addEventListener('click',function(e){if(e.target===this)hideForgotPassword();});
+
+async function handleForgotPassword(){
+  const email=document.getElementById('forgot-email').value.trim();
+  if(!email)return;
+  const btn=document.getElementById('forgot-submit-btn');
+  const err=document.getElementById('forgot-error');
+  btn.disabled=true;
+  btn.textContent='Enviando...';
+  try{
+    const res=await fetch('/api/auth/forgot-password',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email})
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error);
+    document.getElementById('forgot-step-1').style.display='none';
+    document.getElementById('forgot-step-2').style.display='block';
+  }catch(e){
+    err.textContent=e.message;
+    err.style.display='block';
+  }
+  btn.disabled=false;
+  btn.textContent='Enviar enlace';
+}
 function hideAuthModal(){document.getElementById('auth-modal').style.display='none';}
 document.getElementById('auth-modal').addEventListener('click',function(e){if(e.target===this)hideAuthModal();});
 
