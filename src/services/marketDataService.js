@@ -1,8 +1,10 @@
 const yahooFinance = require('./yahooFinanceClient');
 const logger = require('./logger');
 const { cache } = require('./cache');
+const { persistMarketData, loadMarketData } = require('./marketCache');
 
 const CACHE_TTL_MS = 4 * 60 * 1000;
+const PERSISTENT_CACHE_MAX_AGE = 5;
 
 const REGIONS = {
   americas: { label: '🌎 Américas', order: 1 },
@@ -54,6 +56,49 @@ function formatPrice(num) {
   if (num >= 1000) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (num >= 10) return num.toFixed(2);
   return num.toFixed(4);
+}
+
+function formatIndicesData(quote, idx, history) {
+  const price = quote.regularMarketPrice;
+  const prevClose = quote.regularMarketPreviousClose || price;
+  const change = quote.regularMarketChange ?? (price - prevClose);
+  const changePercent = quote.regularMarketChangePercent ?? ((change / prevClose) * 100);
+  const spark = history || [];
+  const dir = change >= 0 ? 'up' : 'down';
+
+  return {
+    id: idx.id,
+    name: idx.name,
+    region: idx.region,
+    regionLabel: REGIONS[idx.region]?.label || idx.region,
+    country: idx.country,
+    symbol: idx.symbol,
+    val: formatPrice(price),
+    chg: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
+    pts: `${change >= 0 ? '+' : ''}${change.toFixed(2)}`,
+    dir,
+    vol: quote.regularMarketVolume ? formatNumber(quote.regularMarketVolume) : '—',
+    spark: spark.slice(-30),
+    open: formatPrice(prevClose),
+    high: formatPrice(price * 1.005),
+    low: formatPrice(price * 0.995),
+    prevClose: formatPrice(prevClose),
+    state: quote.marketState || 'REGULAR',
+    source: 'live',
+  };
+}
+
+function formatCachedData(cached, idx) {
+  return {
+    ...cached,
+    id: idx.id,
+    name: idx.name,
+    region: idx.region,
+    regionLabel: REGIONS[idx.region]?.label || idx.region,
+    country: idx.country,
+    symbol: idx.symbol,
+    source: cached.fresh ? 'cache' : 'cache-stale',
+  };
 }
 
 async function fetchSingleIndex(symbol) {
@@ -108,45 +153,37 @@ async function getAllIndices() {
   const results = await Promise.allSettled(
     INDICES.map(async (idx) => {
       try {
+        const persistKey = `index:${idx.id}`;
+        const persistent = loadMarketData(persistKey, PERSISTENT_CACHE_MAX_AGE);
+        if (persistent && persistent.fresh) {
+          return formatCachedData(persistent.data, idx);
+        }
+
         const [quote, history] = await Promise.all([
           fetchSingleIndex(idx.symbol),
           fetchIndexHistory(idx.symbol),
         ]);
 
-        if (!quote) {
-          return { ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [], source: 'fallback' };
+        if (quote) {
+          const formatted = formatIndicesData(quote, idx, history);
+          persistMarketData(persistKey, { ...formatted, source: 'live' });
+          return formatted;
         }
 
-        const price = quote.regularMarketPrice;
-        const prevClose = quote.regularMarketPreviousClose || price;
-        const change = quote.regularMarketChange ?? (price - prevClose);
-        const changePercent = quote.regularMarketChangePercent ?? ((change / prevClose) * 100);
-        const spark = history || [];
-        const dir = change >= 0 ? 'up' : 'down';
+        if (persistent) {
+          logger.warn(`Using stale cache for ${idx.symbol}`);
+          return formatCachedData(persistent, idx);
+        }
 
-        return {
-          id: idx.id,
-          name: idx.name,
-          region: idx.region,
-          regionLabel: REGIONS[idx.region]?.label || idx.region,
-          country: idx.country,
-          symbol: idx.symbol,
-          val: formatPrice(price),
-          chg: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
-          pts: `${change >= 0 ? '+' : ''}${change.toFixed(2)}`,
-          dir,
-          vol: quote.regularMarketVolume ? formatNumber(quote.regularMarketVolume) : '—',
-          spark: spark.slice(-30),
-          open: formatPrice(prevClose),
-          high: formatPrice(price * 1.005),
-          low: formatPrice(price * 0.995),
-          prevClose: formatPrice(prevClose),
-          state: quote.marketState || 'REGULAR',
-          source: 'live',
-        };
+        return { ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [], source: 'fallback' };
       } catch (err) {
         logger.error(`Failed to process ${idx.symbol}: ${err.message}`);
-        return { ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [] };
+        const persistKey = `index:${idx.id}`;
+        const persistent = loadMarketData(persistKey, 9999);
+        if (persistent) {
+          return formatCachedData(persistent, idx);
+        }
+        return { ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [], source: 'fallback' };
       }
     })
   );
