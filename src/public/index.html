@@ -260,6 +260,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <button class="btn btn-outline" onclick="document.getElementById('market-detail-panel').style.display='none';document.getElementById('constituents-container').style.display='none'" style="padding:4px 12px;font-size:11px">✕ Cerrar</button>
     </div>
     <div id="constituents-container" style="display:none;margin-bottom:16px"></div>
+    <div id="constituent-card" style="display:none;margin-bottom:16px"></div>
     <div class="ai-panel">
       <div class="ai-header">
         <div class="ai-tag">&#9670; ANÁLISIS IA</div>
@@ -531,7 +532,7 @@ async function renderMarkets(){
       <div class="mcard-name">${m.country} — ${m.name}</div>
       <div class="mcard-val" style="color:${m.dir==='up'?'var(--green)':'var(--red)'}">${m.val}</div>
       <div class="mcard-chg ${m.dir}">${m.dir==='up'?'▲':'▼'} ${m.chg} (${m.pts})</div>
-      <div class="mcard-vol">Vol: ${m.vol} · ${m.state}</div>
+      <div class="mcard-vol">Vol: ${m.vol} · ${m.state}${m.source==='fallback'?' <span style="color:var(--amber);font-size:9px">⏸ SIMULADO</span>':''}</div>
       <canvas class="mini-chart" id="spark-${m.id}"></canvas>
     </div>
   `).join('');
@@ -560,12 +561,29 @@ function drawSparkline(m){
   ctx.fillStyle=color+'22';ctx.fill();
 }
 
-async function analyzeConstituent(ticker,name){
+async function analyzeConstituent(ticker,name,sector,weight){
   if(!selectedMarket)return;
-  const txt=document.getElementById('market-analysis-text');
-  const out=document.getElementById('market-analysis-out');
-  out.style.display='block';
-  txt.innerHTML='<div class="spinner"></div> Analizando '+ticker+'...</div>';
+  const container=document.getElementById('constituent-card');
+  container.style.display='block';
+  container.innerHTML=`
+    <div class="ai-panel" style="margin-top:12px">
+      <div class="ai-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="ai-tag">📌 ${ticker}</div>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:10px" onclick="document.getElementById('constituent-card').style.display='none'">✕ Cerrar</button>
+      </div>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:15px;font-weight:600">${name}</div>
+        <div style="display:flex;gap:12px;margin-top:6px;font-size:11px;color:var(--muted)">
+          <span style="background:var(--bg2);padding:2px 8px;border-radius:4px">${sector||''}</span>
+          ${weight?'<span style="background:var(--bg2);padding:2px 8px;border-radius:4px">Peso: '+weight.toFixed(1)+'%</span>':''}
+        </div>
+      </div>
+      <div id="constituent-analysis-out" class="loading" style="display:block;padding:16px">
+        <div class="spinner"></div> Analizando ${ticker}...
+      </div>
+      <div id="constituent-analysis-text" class="summary-text" style="padding:16px;display:none"></div>
+    </div>`;
+  container.scrollIntoView({behavior:'smooth',block:'nearest'});
   try{
     const today=new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const data=await callAnthropic({
@@ -573,9 +591,16 @@ async function analyzeConstituent(ticker,name){
       system:'Eres un analista financiero experto. Responde siempre en español. Sé conciso.',
       messages:[{role:'user',content:`Analiza la acción ${ticker} (${name}) del índice ${selectedMarket.name} hoy ${today}. Dame en 3-4 líneas: 1) Situación técnica, 2) Perspectiva, 3) Niveles clave.`}]
     });
-    out.style.display='none';
-    txt.innerHTML=data.content[0].text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--accent)">$1</strong>');
-  }catch(e){out.style.display='none';txt.innerHTML='<span style="color:var(--red)">Error al analizar '+ticker+'</span>';}
+    document.getElementById('constituent-analysis-out').style.display='none';
+    const at=document.getElementById('constituent-analysis-text');
+    at.style.display='block';
+    at.innerHTML=(data.content[0].text||'').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--accent)">$1</strong>');
+  }catch(e){
+    document.getElementById('constituent-analysis-out').style.display='none';
+    const at=document.getElementById('constituent-analysis-text');
+    at.style.display='block';
+    at.innerHTML='<span style="color:var(--red)">Error al analizar '+ticker+'. Intenta de nuevo.</span>';
+  }
 }
 
 async function selectMarket(id){
@@ -593,7 +618,7 @@ async function selectMarket(id){
     const r=await fetch('/api/markets/'+id+'/constituents');
     if(!r.ok){ce.style.display='none';return;}
     const d=await r.json();
-    ce.innerHTML='<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted);font-family:\'Space Mono\',monospace">COMPONENTES ('+d.total+')</span><button class="btn btn-outline" style="padding:4px 10px;font-size:10px" onclick="document.getElementById(\'constituents-container\').style.display=\'none\'">✕ Cerrar</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;max-height:400px;overflow-y:auto;padding-right:4px">'+d.constituents.map(c=>'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'\'" onclick="analyzeConstituent(\''+c.ticker+'\',\''+c.name+'\')"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600;font-size:13px;font-family:\'Space Mono\',monospace;color:var(--accent)">'+c.ticker+'</span><span style="font-size:10px;color:var(--muted);background:var(--bg2);padding:2px 6px;border-radius:4px">'+c.sector+'</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+c.name+'</div></div>').join('')+'</div>';
+    ce.innerHTML='<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted);font-family:\'Space Mono\',monospace">COMPONENTES ('+d.total+')</span><button class="btn btn-outline" style="padding:4px 10px;font-size:10px" onclick="document.getElementById(\'constituents-container\').style.display=\'none\'">✕ Cerrar</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;max-height:400px;overflow-y:auto;padding-right:4px">'+d.constituents.map(c=>'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'\'" onclick="analyzeConstituent(\''+c.ticker.replace(/'/g,'\\\'')+'\',\''+c.name.replace(/'/g,'\\\'')+'\',\''+(c.sector||'').replace(/'/g,'\\\'')+'\','+(c.weight||0)+')"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600;font-size:13px;font-family:\'Space Mono\',monospace;color:var(--accent)">'+c.ticker+'</span><span style="font-size:10px;color:var(--muted);background:var(--bg2);padding:2px 6px;border-radius:4px">'+c.sector+'</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+c.name+'</div></div>').join('')+'</div>';
   }catch(e){ce.style.display='none';}
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }

@@ -114,7 +114,7 @@ async function getAllIndices() {
         ]);
 
         if (!quote) {
-          return { ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [] };
+          return { ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [], source: 'fallback' };
         }
 
         const price = quote.regularMarketPrice;
@@ -142,6 +142,7 @@ async function getAllIndices() {
           low: formatPrice(price * 0.995),
           prevClose: formatPrice(prevClose),
           state: quote.marketState || 'REGULAR',
+          source: 'live',
         };
       } catch (err) {
         logger.error(`Failed to process ${idx.symbol}: ${err.message}`);
@@ -156,7 +157,7 @@ async function getAllIndices() {
 
   if (valid.length === 0) {
     logger.warn('All market data failed, using full fallback');
-    return INDICES.map((idx) => ({ ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [] }));
+    return INDICES.map((idx) => ({ ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [], source: 'fallback' }));
   }
 
   logger.info(`Fetched ${valid.length}/${INDICES.length} indices`);
@@ -193,7 +194,7 @@ async function getMarketsByRegion() {
       fallback[key] = {
         label: REGIONS[key].label,
         order: REGIONS[key].order,
-        markets: regionIndices.map((idx) => ({ ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [] })),
+        markets: regionIndices.map((idx) => ({ ...FALLBACK_DATA[idx.id], id: idx.id, symbol: idx.symbol, spark: [], source: 'fallback' })),
         stats: { total: regionIndices.length, up: 0, down: 0 },
       };
     }
