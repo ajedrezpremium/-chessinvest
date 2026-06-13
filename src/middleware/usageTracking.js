@@ -1,5 +1,5 @@
-const { run, saveDb } = require('./database');
-const logger = require('./logger');
+const { run, saveDb } = require('../services/database');
+const logger = require('../services/logger');
 
 function trackUsage(req, _res, next) {
   const userId = req.user?.id;

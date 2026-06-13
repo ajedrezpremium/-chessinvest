@@ -37,13 +37,12 @@ app.use(express.json({ limit: '1mb' }));
 app.use(requestLogger);
 app.use(responseLogger);
 
-const { get } = require('./services/database');
-
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: config.isDev ? 120 : 60,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Too many requests, try again later' },
 });
 
@@ -64,6 +63,7 @@ const agentLimiter = rateLimit({
   keyGenerator: planKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Demasiadas solicitudes al agente. Espera un minuto.' },
 });
 

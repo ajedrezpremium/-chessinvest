@@ -156,4 +156,73 @@ function formatTechnicalContext(analysis) {
   return lines.join('\n');
 }
 
-module.exports = { getTechnicalAnalysis, formatTechnicalContext, calcRSI, calcMACD, calcSMA, calcBollinger, findSupportResistance };
+const TIMEFRAMES = [
+  { name: '1m', interval: '1m', range: '1d', bars: 390, label: '1 minuto' },
+  { name: '5m', interval: '5m', range: '5d', bars: 390, label: '5 minutos' },
+  { name: '15m', interval: '15m', range: '10d', bars: 390, label: '15 minutos' },
+  { name: '1h', interval: '1h', range: '1mo', bars: 200, label: '1 hora' },
+  { name: '4h', interval: '1h', range: '1mo', bars: 200, label: '4 horas' },
+  { name: '1d', interval: '1d', range: '6mo', bars: 130, label: '1 día' },
+  { name: '1w', interval: '1wk', range: '2y', bars: 104, label: '1 semana' },
+];
+
+function detectTimeframe(message) {
+  const upper = message.toUpperCase();
+  if (/\b(1M|1\s*MIN|MINUTO)\b/.test(upper)) return '1m';
+  if (/\b(5M|5\s*MIN)\b/.test(upper)) return '5m';
+  if (/\b(15M|15\s*MIN)\b/.test(upper)) return '15m';
+  if (/\b(1H|1\s*HORA|HORARIO)\b/.test(upper)) return '1h';
+  if (/\b(4H|4\s*HORA)\b/.test(upper)) return '4h';
+  if (/\b(SEMANAL|WEEK|1W)\b/.test(upper)) return '1w';
+  if (/\b(INTRADIA|SCALP|RAPIDO)\b/.test(upper)) return '5m';
+  if (/\b(MEDIO\s*PLAZO|MEDIOPLAZO|SWING)\b/.test(upper)) return '4h';
+  if (/\b(LARGO\s*PLAZO|LARGOPLAZO|POSICIONAL|ESTRUCTURAL)\b/.test(upper)) return '1d';
+  return '1d';
+}
+
+async function getMultiTimeframeAnalysis(symbol, userMessage = '') {
+  const tfName = detectTimeframe(userMessage);
+  const tfConfig = TIMEFRAMES.find(t => t.name === tfName) || TIMEFRAMES.find(t => t.name === '1d');
+
+  const primary = await getTechnicalAnalysis(symbol, tfConfig.interval, tfConfig.range);
+
+  const contextTfs = ['1d', '4h', '1h'].filter(t => t !== tfName).slice(0, 2);
+  const contextResults = await Promise.all(
+    contextTfs.map(tf => {
+      const cfg = TIMEFRAMES.find(t => t.name === tf);
+      return getTechnicalAnalysis(symbol, cfg.interval, cfg.range);
+    })
+  );
+
+  const contextMap = {};
+  contextTfs.forEach((tf, i) => { contextMap[tf] = contextResults[i]; });
+
+  return {
+    primary: { ...primary, timeframe: tfName, timeframeLabel: tfConfig.label },
+    context: contextMap,
+    availableTimeframes: TIMEFRAMES.filter(t => t.name !== tfName).map(t => t.name),
+  };
+}
+
+function formatMultiTimeframeContext(mta) {
+  if (!mta?.primary) return '';
+
+  const p = mta.primary;
+  let text = `📊 ANÁLISIS MULTI-TIMEFRAME (${p.timeframeLabel}):\n`;
+  text += `${formatTechnicalContext(p)}\n`;
+
+  for (const [tf, ta] of Object.entries(mta.context || {})) {
+    if (!ta) continue;
+    const tfLabel = TIMEFRAMES.find(t => t.name === tf)?.label || tf;
+    text += `\n--- Contexto ${tfLabel} ---\n`;
+    text += `RSI: ${ta.rsi ?? 'N/A'} | SMA20: ${ta.sma?.sma20 !== null ? '$' + ta.sma.sma20.toFixed(2) : 'N/A'} | SMA50: ${ta.sma?.sma50 !== null ? '$' + ta.sma.sma50.toFixed(2) : 'N/A'}\n`;
+    text += `MACD: ${ta.macd?.macd ?? 'N/A'} | Bollinger U: $${ta.bollinger?.upper ?? 'N/A'} L: $${ta.bollinger?.lower ?? 'N/A'}\n`;
+  }
+
+  return text;
+}
+
+module.exports = {
+  getTechnicalAnalysis, formatTechnicalContext, getMultiTimeframeAnalysis, formatMultiTimeframeContext,
+  calcRSI, calcMACD, calcSMA, calcBollinger, findSupportResistance, detectTimeframe,
+};

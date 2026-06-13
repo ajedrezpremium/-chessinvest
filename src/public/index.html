@@ -186,6 +186,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .agent-float-btn.chess:hover{box-shadow:0 6px 30px rgba(0,212,255,0.6)}
 .agent-float-btn.stock{background:var(--purple);color:#fff}
 .agent-float-btn.stock:hover{box-shadow:0 6px 30px rgba(179,136,255,0.6)}
+.theme-toggle{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:all 0.2s}
+.theme-toggle:hover{color:var(--accent);border-color:var(--accent)}
+[data-theme="light"]{--bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8ecf0;--bg4:#dde1e6;--text:#1a1a2e;--muted:#6b7280;--border:rgba(0,0,0,0.1);--card-border:rgba(0,0,0,0.08)}
 #subscription-sidebar{animation:slideIn 0.3s ease-out}
 @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 </style>
@@ -194,7 +197,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <div class="topbar">
   <div class="logo">♔ CHESS INVEST</div>
   <div style="display:flex;align-items:center;gap:16px">
-    <div class="clock"><div class="live-dot"></div><span id="clock-time">--:--:--</span> <span style="color:var(--border-color)">|</span> <span id="clock-date" style="color:var(--muted)"></span></div>
+    <div class="clock"><div class="live-dot"></div><span id="clock-time">--:--:--</span> <span style="color:var(--border-color)">|</span> <span id="clock-date" style="color:var(--muted)"></span> <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" style="margin-left:8px">☀️</button></div>
 <div id="user-menu" style="display:none">
   <a href="/profile" id="profile-btn" class="profile-btn free" title="Mi Perfil">
     <span class="profile-avatar" id="profile-avatar">?</span>
@@ -1320,4 +1323,13 @@ function generateCalendar(){
 }
 
 generateCalendar();
+
+const savedTheme=localStorage.getItem('chessinvest_theme')||'dark';
+if(savedTheme==='light')document.documentElement.setAttribute('data-theme','light');
+function toggleTheme(){
+  const html=document.documentElement;
+  const isLight=html.getAttribute('data-theme')==='light';
+  if(isLight){html.removeAttribute('data-theme');localStorage.setItem('chessinvest_theme','dark');
+  }else{html.setAttribute('data-theme','light');localStorage.setItem('chessinvest_theme','light');}
+}
 </script>

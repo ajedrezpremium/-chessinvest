@@ -3,9 +3,11 @@ const config = require('../config');
 const { callAI, callAIStream } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
-const { getTechnicalAnalysis, formatTechnicalContext } = require('../services/technicalAnalysisService');
+const { getTechnicalAnalysis, getMultiTimeframeAnalysis, formatTechnicalContext, formatMultiTimeframeContext } = require('../services/technicalAnalysisService');
 const { fetchEconomicCalendar, formatCalendarContext } = require('../services/economicCalendar');
 const { runBacktest, formatBacktestContext } = require('../services/backtestService');
+const { detectPatternsForSymbol, formatPatternSummary } = require('../services/patternDetector');
+const { getCorrelationMatrix, formatCorrelationMatrix } = require('../services/correlationMatrix');
 const { optionalAuth } = require('../middleware/auth');
 const { get, all, run } = require('../services/database');
 const { saveDb } = require('../services/database');
@@ -148,8 +150,9 @@ async function getSignalPnL(userId) {
 
 function selectModel(detectedFutures, taResults) {
   if (config.openRouter.model) return config.openRouter.model;
+  if (config.openRouter.model) return config.openRouter.model;
   const hasComplexData = detectedFutures.length > 0 || taResults.some(Boolean);
-  return hasComplexData ? 'claude-sonnet-4-20250514' : 'google/gemini-2.0-flash-exp:free';
+  return hasComplexData ? 'claude-sonnet-4-20250514' : 'openrouter/free';
 }
 
 const FUTURES_PATTERN = /\b(ES|NQ|RTY|YM|CL|GC|SI|HG|NG|ZB|ZN|6E|6B|6J|VIX|DXY)\b/g;
@@ -229,12 +232,13 @@ router.post('/chat', optionalAuth, async (req, res) => {
     const detectedFutures = extractFutures(message);
     const taSymbols = detectedFutures.map(t => FUTURES_TO_SYMBOL[t]).filter(Boolean);
 
-    const [futures, markets, portfolioContext, calendar, ...taResults] = await Promise.all([
+    const [futures, markets, portfolioContext, calendar, corrMatrix, ...mtaResults] = await Promise.all([
       getFuturesData(),
       getAllIndices(),
       getUserPortfolioContext(req.user?.id),
       fetchEconomicCalendar(),
-      ...taSymbols.map(sym => getTechnicalAnalysis(sym)),
+      getCorrelationMatrix(60),
+      ...taSymbols.map(sym => getMultiTimeframeAnalysis(sym, message)),
     ]);
 
     const conversationHistory = getConversationHistory(req.user?.id);
@@ -245,12 +249,21 @@ router.post('/chat', optionalAuth, async (req, res) => {
     const wisdom = FUTURES_WISDOM[Math.floor(Math.random() * FUTURES_WISDOM.length)];
     const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
     const conversationBlock = formatConversationHistory(conversationHistory);
-    const techBlock = taResults.filter(Boolean).map(ta => `ANÁLISIS TÉCNICO REAL (${ta.symbol}):\n${formatTechnicalContext(ta)}`).join('\n\n');
+
+    const mtaBlock = mtaResults.filter(Boolean).map(m => formatMultiTimeframeContext(m)).join('\n\n');
+
+    const patterns = [];
+    for (const sym of taSymbols) {
+      const pats = await detectPatternsForSymbol(sym);
+      patterns.push(...pats);
+    }
+
+    const correlationBlock = formatCorrelationMatrix(corrMatrix);
     const calendarBlock = formatCalendarContext(calendar);
 
-    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets. El CALENDARIO ECONÓMICO arriba muestra los eventos macro que impactan los mercados. Tenlos en cuenta en tu análisis.`;
+    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${mtaBlock ? '\n' + mtaBlock + '\n' : ''}${patterns.length ? '\nPATRONES DE VELAS DETECTADOS:\n' + formatPatternSummary(patterns) + '\n' : ''}${correlationBlock ? '\n' + correlationBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO, PATRONES DE VELAS, MATRIZ DE CORRELACIÓN y CALENDARIO ECONÓMICO para tu análisis. Sé específico con niveles de precio, stops y targets.`;
 
-    const model = selectModel(detectedFutures, taResults);
+    const model = selectModel(detectedFutures, mtaResults.map(m => m?.primary).filter(Boolean));
     const aiPayload = {
       model,
       max_tokens: 2000,
@@ -291,13 +304,25 @@ router.post('/chat', optionalAuth, async (req, res) => {
       wisdom,
       portfolioAware: portfolioContext ? true : false,
       futuresDetected: detectedFutures.length > 0,
-      technicalAnalysis: taResults.filter(Boolean).map(ta => ({
-        symbol: ta.symbol,
-        rsi: ta.rsi,
-        macd: ta.macd?.macd,
-        sma20: ta.sma?.sma20,
-        sma50: ta.sma?.sma50,
+      multiTimeframe: mtaResults.filter(Boolean).map(m => ({
+        symbol: m.primary?.symbol,
+        timeframe: m.primary?.timeframe,
+        rsi: m.primary?.rsi,
+        macd: m.primary?.macd?.macd,
+        sma20: m.primary?.sma?.sma20,
+        sma50: m.primary?.sma?.sma50,
       })),
+      patterns: patterns.length > 0 ? patterns : null,
+      correlation: corrMatrix ? {
+        topPairs: corrMatrix.labels
+          .flatMap((a, i) => corrMatrix.labels.slice(i + 1).map((b, j) => ({
+            a: a.asset.id, b: b.asset.id,
+            value: corrMatrix.matrix[i][i + 1 + j],
+          })))
+          .filter(p => p.value !== null && Math.abs(p.value) > 0.5)
+          .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+          .slice(0, 5)
+      } : null,
       autoSignal: autoSignal ? { ...autoSignal, id: signalId } : null,
       backtest: backtest ? {
         symbol: backtest.symbol, totalTrades: backtest.totalTrades, winRate: backtest.winRate,
@@ -331,12 +356,13 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
   const detectedFutures = extractFutures(message);
   const taSymbols = detectedFutures.map(t => FUTURES_TO_SYMBOL[t]).filter(Boolean);
 
-  const [futures, markets, portfolioContext, calendar, ...taResults] = await Promise.all([
+  const [futures, markets, portfolioContext, calendar, corrMatrix, ...mtaResults] = await Promise.all([
     getFuturesData(),
     getAllIndices(),
     getUserPortfolioContext(req.user?.id),
     fetchEconomicCalendar(),
-    ...taSymbols.map(sym => getTechnicalAnalysis(sym)),
+    getCorrelationMatrix(60),
+    ...taSymbols.map(sym => getMultiTimeframeAnalysis(sym, message)),
   ]);
 
   addConversationMessage(req.user?.id, 'user', message);
@@ -347,12 +373,20 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
   const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
   const conversationHistory = getConversationHistory(req.user?.id);
   const conversationBlock = formatConversationHistory(conversationHistory);
-  const techBlock = taResults.filter(Boolean).map(ta => `ANÁLISIS TÉCNICO REAL (${ta.symbol}):\n${formatTechnicalContext(ta)}`).join('\n\n');
+  const mtaBlock = mtaResults.filter(Boolean).map(m => formatMultiTimeframeContext(m)).join('\n\n');
+
+  const patterns = [];
+  for (const sym of taSymbols) {
+    const pats = await detectPatternsForSymbol(sym);
+    patterns.push(...pats);
+  }
+
+  const correlationBlock = formatCorrelationMatrix(corrMatrix);
   const calendarBlock = formatCalendarContext(calendar);
 
-  const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${techBlock ? '\n' + techBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO REAL (RSI, MACD, SMA, Bollinger) para tus cálculos. Sé específico con niveles de precio, stops y targets. El CALENDARIO ECONÓMICO arriba muestra los eventos macro que impactan los mercados. Tenlos en cuenta en tu análisis.`;
+  const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${mtaBlock ? '\n' + mtaBlock + '\n' : ''}${patterns.length ? '\nPATRONES DE VELAS DETECTADOS:\n' + formatPatternSummary(patterns) + '\n' : ''}${correlationBlock ? '\n' + correlationBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO, PATRONES DE VELAS, MATRIZ DE CORRELACIÓN y CALENDARIO ECONÓMICO para tu análisis. Sé específico con niveles de precio, stops y targets.`;
 
-  const model = selectModel(detectedFutures, taResults);
+  const model = selectModel(detectedFutures, mtaResults.map(m => m?.primary).filter(Boolean));
   const aiPayload = {
     model,
     max_tokens: 2000,
@@ -397,9 +431,25 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
             totalReturn: backtest.totalReturn, sharpe: backtest.sharpe, maxDrawdown: backtest.maxDrawdown,
           } : null,
           signalPnL,
-          technicalAnalysis: taResults.filter(Boolean).map(ta => ({
-            symbol: ta.symbol, rsi: ta.rsi, macd: ta.macd?.macd, sma20: ta.sma?.sma20, sma50: ta.sma?.sma50,
+          multiTimeframe: mtaResults.filter(Boolean).map(m => ({
+            symbol: m.primary?.symbol,
+            timeframe: m.primary?.timeframe,
+            rsi: m.primary?.rsi,
+            macd: m.primary?.macd?.macd,
+            sma20: m.primary?.sma?.sma20,
+            sma50: m.primary?.sma?.sma50,
           })),
+          patterns: patterns.length > 0 ? patterns : null,
+          correlation: corrMatrix ? {
+            topPairs: corrMatrix.labels
+              .flatMap((a, i) => corrMatrix.labels.slice(i + 1).map((b, j) => ({
+                a: a.asset.id, b: b.asset.id,
+                value: corrMatrix.matrix[i][i + 1 + j],
+              })))
+              .filter(p => p.value !== null && Math.abs(p.value) > 0.5)
+              .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+              .slice(0, 5)
+          } : null,
         })}\n\n`);
       }
       res.end();
