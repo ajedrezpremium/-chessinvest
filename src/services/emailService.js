@@ -24,6 +24,7 @@ function getTransporter() {
     port: config.port,
     secure: config.port === 465,
     auth: { user: config.user, pass: config.pass },
+    tls: { rejectUnauthorized: false },
   });
   return transporter;
 }

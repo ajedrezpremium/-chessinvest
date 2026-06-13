@@ -79,7 +79,7 @@ router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
-  const token = createPasswordReset(email);
+  const token = await createPasswordReset(email);
   if (!token) return res.json({ ok: true });
 
   const user = get('SELECT username FROM users WHERE email = ?', [email]);
