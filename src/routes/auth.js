@@ -27,7 +27,7 @@ router.post('/register', (req, res) => {
     run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'free', 'active']);
     run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
     const user = { id: result.lastID, email, username };
-    const { accessToken, refreshToken } = createTokens(user);
+    const { accessToken, refreshToken } = await createTokens(user);
 
     res.status(201).json({ token: accessToken, refreshToken, user: { id: user.id, email: user.email, username: user.username, plan: 'free' } });
   } catch (err) {
@@ -48,7 +48,7 @@ router.post('/login', (req, res) => {
     }
 
     const sub = get('SELECT plan, status FROM subscriptions WHERE user_id = ?', [user.id]);
-    const { accessToken, refreshToken } = createTokens(user);
+    const { accessToken, refreshToken } = await createTokens(user);
     res.json({
       token: accessToken,
       refreshToken,
