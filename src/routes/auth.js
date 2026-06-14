@@ -7,7 +7,7 @@ const logger = require('../services/logger');
 
 const router = Router();
 
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { email, username, password } = req.body;
     if (!email || !username || !password) {
@@ -35,7 +35,7 @@ router.post('/register', (req, res) => {
   }
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
