@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { run, saveDb } = require('../services/database');
+const { getUserProfile } = require('../services/supabaseAuth');
+const { getSupabaseAdmin } = require('../services/supabase');
 const logger = require('../services/logger');
 const { generateDailyNewsletter, sendNewsletterToSubscribers, getLatestNewsletter, getNewsletterSubscribers } = require('../services/newsletterService');
 
@@ -8,19 +9,25 @@ const router = Router();
 
 router.post('/subscribe', requireAuth, async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { subscribed } = req.body;
     const val = subscribed !== false ? 1 : 0;
-    run('UPDATE user_settings SET newsletter_subscribed = ?, updated_at = datetime(\'now\') WHERE user_id = ?', [val, req.user.id]);
-    saveDb();
+    await admin.from('user_settings').upsert({
+      user_id: req.user.id,
+      newsletter_subscribed: val,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
     res.json({ subscribed: !!val, message: val ? 'Suscripto al newsletter diario' : 'Desuscripto del newsletter diario' });
   } catch (err) {
+    logger.error(`Newsletter subscribe error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update subscription' });
   }
 });
 
 router.get('/status', requireAuth, async (req, res) => {
   try {
-    const row = require('../services/database').get('SELECT newsletter_subscribed FROM user_settings WHERE user_id = ?', [req.user.id]);
+    const admin = getSupabaseAdmin();
+    const { data: row } = await admin.from('user_settings').select('newsletter_subscribed').eq('user_id', req.user.id).single();
     res.json({ subscribed: row?.newsletter_subscribed !== 0 });
   } catch {
     res.json({ subscribed: true });
@@ -39,7 +46,7 @@ router.get('/latest', async (req, res) => {
 
 router.post('/generate', requireAuth, async (req, res) => {
   try {
-    const user = require('../services/database').get('SELECT role FROM users WHERE id = ?', [req.user.id]);
+    const user = await getUserProfile(req.user.id);
     if (user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
     const result = await generateDailyNewsletter();
@@ -51,7 +58,7 @@ router.post('/generate', requireAuth, async (req, res) => {
 
 router.post('/send', requireAuth, async (req, res) => {
   try {
-    const user = require('../services/database').get('SELECT role FROM users WHERE id = ?', [req.user.id]);
+    const user = await getUserProfile(req.user.id);
     if (user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
     const nid = req.body.newsletterId || null;
@@ -64,10 +71,10 @@ router.post('/send', requireAuth, async (req, res) => {
 
 router.get('/subscribers', requireAuth, async (req, res) => {
   try {
-    const user = require('../services/database').get('SELECT role FROM users WHERE id = ?', [req.user.id]);
+    const user = await getUserProfile(req.user.id);
     if (user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
-    const subs = getNewsletterSubscribers();
+    const subs = await getNewsletterSubscribers();
     res.json({ count: subs.length, subscribers: subs });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -76,11 +83,12 @@ router.get('/subscribers', requireAuth, async (req, res) => {
 
 router.get('/history', requireAuth, async (req, res) => {
   try {
-    const user = require('../services/database').get('SELECT role FROM users WHERE id = ?', [req.user.id]);
+    const user = await getUserProfile(req.user.id);
     if (user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
-    const all = require('../services/database').all('SELECT id, title, summary, generated_at, sent_count FROM newsletters ORDER BY generated_at DESC LIMIT 30');
-    res.json(all);
+    const admin = getSupabaseAdmin();
+    const { data } = await admin.from('newsletters').select('id, title, summary, generated_at, sent_count').order('generated_at', { ascending: false }).limit(30);
+    res.json(data || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

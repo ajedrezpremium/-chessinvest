@@ -3,7 +3,7 @@ const { callAI } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getMultiModalAnalysis, buildMultiModalPrompt } = require('../services/multiModalAnalysis');
 const { optionalAuth } = require('../middleware/auth');
-const { get, all } = require('../services/database');
+const { select } = require('../services/supabaseDb');
 const logger = require('../services/logger');
 
 const INVESTMENT_WISDOM = [
@@ -175,8 +175,8 @@ function extractTicker(message) {
 async function getUserPortfolioContext(userId) {
   if (!userId) return null;
   try {
-    const portfolio = await all('SELECT ticker, shares, avg_price FROM portfolio WHERE user_id = ? ORDER BY added_at DESC', [userId]);
-    const watchlist = await all('SELECT ticker FROM watchlist WHERE user_id = ? ORDER BY added_at DESC', [userId]);
+    const portfolio = await select('portfolio', { user_id: userId }, { order: { column: 'added_at', ascending: false } });
+    const watchlist = await select('watchlist', { user_id: userId }, { order: { column: 'added_at', ascending: false } });
     if (!portfolio?.length && !watchlist?.length) return null;
 
     let context = '';
@@ -204,8 +204,8 @@ async function getUserPortfolioContext(userId) {
 async function getProactiveAlerts(userId, marketData) {
   if (!userId) return [];
   try {
-    const portfolio = await all('SELECT ticker, shares, avg_price FROM portfolio WHERE user_id = ?', [userId]);
-    const watchlist = await all('SELECT ticker FROM watchlist WHERE user_id = ?', [userId]);
+    const portfolio = await select('portfolio', { user_id: userId });
+    const watchlist = await select('watchlist', { user_id: userId });
     const tickers = [...(portfolio || []).map(p => p.ticker), ...(watchlist || []).map(w => w.ticker)];
     if (!tickers.length) return [];
 

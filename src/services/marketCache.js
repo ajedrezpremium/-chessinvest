@@ -1,16 +1,18 @@
-const { get, run, saveDb } = require('./database');
+const { getSupabaseAdmin } = require('./supabase');
 const logger = require('./logger');
 
-function persistMarketData(key, data) {
+async function persistMarketData(key, data) {
   try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return false;
+
     const json = JSON.stringify(data);
-    const existing = get('SELECT key FROM market_cache WHERE key = ?', [key]);
-    if (existing) {
-      run('UPDATE market_cache SET value = ?, updated_at = datetime(\'now\') WHERE key = ?', [json, key]);
-    } else {
-      run('INSERT INTO market_cache (key, value) VALUES (?, ?)', [key, json]);
-    }
-    saveDb();
+    const { error } = await admin.from('market_cache').upsert({
+      key,
+      value: json,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
     return true;
   } catch (err) {
     logger.warn(`Failed to persist market cache for ${key}: ${err.message}`);
@@ -18,21 +20,33 @@ function persistMarketData(key, data) {
   }
 }
 
-function loadMarketData(key, maxAgeMinutes = 10) {
+async function loadMarketData(key, maxAgeMinutes = 10) {
   try {
-    const row = get(
-      `SELECT value, updated_at FROM market_cache WHERE key = ? AND updated_at > datetime('now', ?)`,
-      [key, `-${maxAgeMinutes} minutes`]
-    );
-    if (row) {
-      return { data: JSON.parse(row.value), age: row.updated_at, fresh: true };
+    const admin = getSupabaseAdmin();
+    if (!admin) return null;
+
+    const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
+
+    const { data: fresh, error: freshErr } = await admin
+      .from('market_cache')
+      .select('value, updated_at')
+      .eq('key', key)
+      .gt('updated_at', cutoff)
+      .single();
+
+    if (!freshErr && fresh) {
+      return { data: JSON.parse(fresh.value), age: fresh.updated_at, fresh: true };
     }
 
-    const stale = get(
-      'SELECT value, updated_at FROM market_cache WHERE key = ? ORDER BY updated_at DESC LIMIT 1',
-      [key]
-    );
-    if (stale) {
+    const { data: stale, error: staleErr } = await admin
+      .from('market_cache')
+      .select('value, updated_at')
+      .eq('key', key)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!staleErr && stale) {
       return { data: JSON.parse(stale.value), age: stale.updated_at, fresh: false };
     }
 
@@ -43,9 +57,12 @@ function loadMarketData(key, maxAgeMinutes = 10) {
   }
 }
 
-function getAllCachedKeys() {
+async function getAllCachedKeys() {
   try {
-    return get('SELECT COUNT(*) as cnt FROM market_cache').cnt;
+    const admin = getSupabaseAdmin();
+    if (!admin) return 0;
+    const { count } = await admin.from('market_cache').select('*', { count: 'exact', head: true });
+    return count || 0;
   } catch {
     return 0;
   }

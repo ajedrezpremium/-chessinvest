@@ -27,10 +27,10 @@ const newsletterRoutes = require('./routes/newsletter');
 const { generateDailyNewsletter, sendNewsletterToSubscribers } = require('./services/newsletterService');
 const { startJob, stopAll } = require('./services/scheduler');
 const { getAllIndices } = require('./services/marketDataService');
-const { openDb, initSchema, closeDb, run, get, saveDb } = require('./services/database');
-const { hashPassword } = require('./services/auth');
 const { checkPriceAlerts } = require('./services/alertChecker');
 const { startWebSocket } = require('./services/webSocketService');
+const { getSubscription } = require('./services/supabaseDb');
+const { testConnection } = require('./services/supabase');
 
 const app = express();
 
@@ -49,10 +49,14 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, try again later' },
 });
 
-function planKeyGenerator(req) {
+async function planKeyGenerator(req) {
   if (req.user?.id) {
-    const sub = get('SELECT plan FROM subscriptions WHERE user_id = ?', [req.user.id]);
-    req.userPlan = sub?.plan || 'free';
+    try {
+      const sub = await getSubscription(req.user.id);
+      req.userPlan = sub?.plan || 'free';
+    } catch {
+      req.userPlan = 'free';
+    }
   }
   return req.user?.id || req.ip;
 }
@@ -174,7 +178,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/stockbroker', dailyUsageLimiter, agentLimiter, stockbrokerRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/newsletter', newsletterRoutes);
-app.use('/api', require('./middleware/usageTracking').trackUsage);
+app.use('/api', trackUsage);
 
 // Test endpoint
 app.get('/api/test', (_req, res) => {
@@ -185,7 +189,8 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-app.get('/api/status', (_req, res) => {
+app.get('/api/status', async (_req, res) => {
+  const dbTest = await testConnection();
   res.json({
     app: 'CHESSINVEST',
     version: require('../package.json').version,
@@ -194,13 +199,14 @@ app.get('/api/status', (_req, res) => {
     env: config.nodeEnv,
     memory: process.memoryUsage(),
     hasAI: Boolean(config.openRouter.apiKey || config.anthropic.apiKey),
-    hasDB: true,
+    hasDB: dbTest.ok,
+    db: dbTest.ok ? 'Supabase (PostgreSQL)' : 'Disconnected',
   });
 });
 
 // One-time admin seed endpoint (kept for manual trigger if needed)
 app.get('/api/seed-admin', async (_req, res) => {
-  res.json({ status: 'admin is auto-seeded on startup', email: 'ajedrezpremium@gmail.com', password: 'Chess2026#' });
+  res.json({ status: 'admin users managed in Supabase Auth + profiles table', email: 'ajedrezpremium@gmail.com' });
 });
 
 app.use(notFoundHandler);
@@ -211,129 +217,86 @@ const sslCert = process.env.SSL_CERT_PATH;
 
 async function startServer() {
   try {
-    await openDb();
-    await initSchema();
-    logger.info('Database ready');
-
-    // Auto-seed users on every startup (idempotent)
-    try {
-      const usersToSeed = [
-        { email: 'ajedrezpremium@gmail.com', username: 'Admin', hash: hashPassword('Chess2026#'), role: 'admin', avatar: '👑' },
-        { email: 'chessagencyai@gmail.com', username: 'chessagencyai', hash: hashPassword('Chess2026#'), role: 'user', avatar: '🤖' },
-      ];
-      for (const u of usersToSeed) {
-        const existing = get('SELECT id, role FROM users WHERE email = ?', [u.email]);
-        if (!existing) {
-          const result = run(
-            "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, ?, ?)",
-            [u.email, u.username, u.hash, u.role, u.avatar],
-          );
-          run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, u.role === 'admin' ? 'premium' : 'free', 'active']);
-          run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
-          saveDb();
-          logger.info(`User auto-seeded: ${u.email}`);
-        }
-      }
-    } catch (err) {
-      logger.error(`Admin seed failed: ${err.message}`);
+    // Test Supabase connection
+    const dbTest = await testConnection();
+    if (dbTest.ok) {
+      logger.info('Supabase (PostgreSQL) connected');
+    } else {
+      logger.error(`Supabase connection failed: ${dbTest.error}`);
     }
 
-    // Auto-seed collaborator admin (idempotent)
-    try {
-      const collabEmail = 'carlosguerra@gmail.com';
-      const collabUsername = 'xadreztomiño';
-      const collabExisting = get('SELECT id, role FROM users WHERE email = ?', [collabEmail]);
-      if (!collabExisting) {
-        const hash = hashPassword('Chess2026#');
-        const result = run(
-          "INSERT INTO users (email, username, password_hash, role, avatar) VALUES (?, ?, ?, 'admin', '♔')",
-          [collabEmail, collabUsername, hash],
-        );
-        run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'premium', 'active']);
-        run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
-        saveDb();
-        logger.info('Collaborator admin auto-seeded: carlosguerra@gmail.com');
-      } else if (collabExisting.role !== 'admin') {
-        run("UPDATE users SET role = 'admin', avatar = '♔' WHERE email = ?", [collabEmail]);
-        run("UPDATE subscriptions SET plan = 'premium', status = 'active' WHERE user_id = ?", [collabExisting.id]);
-        saveDb();
-        logger.info('Collaborator admin role restored: carlosguerra@gmail.com');
-      }
-    } catch (err) {
-      logger.error(`Collaborator admin seed failed: ${err.message}`);
-    }
-  } catch (err) {
-    logger.error(`Database init failed: ${err.message}. Continuing without persistence.`);
-  }
+    // Scheduler jobs (these run in-process on Render; for Vercel they'd need separate worker)
+    startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
+    startJob('price-alert-checker', checkPriceAlerts, 5 * 60 * 1000);
 
-  startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
-  startJob('price-alert-checker', checkPriceAlerts, 5 * 60 * 1000);
+    const msUntil8am = () => {
+      const now = new Date();
+      const target = new Date(now);
+      target.setHours(8, 0, 0, 0);
+      if (target <= now) target.setDate(target.getDate() + 1);
+      return target.getTime() - now.getTime();
+    };
 
-  const msUntil8am = () => {
-    const now = new Date();
-    const target = new Date(now);
-    target.setHours(8, 0, 0, 0);
-    if (target <= now) target.setDate(target.getDate() + 1);
-    return target.getTime() - now.getTime();
-  };
-
-  setTimeout(() => {
-    startJob('daily-newsletter', async () => {
-      const result = await generateDailyNewsletter();
-      if (result && !result.reused) {
-        await sendNewsletterToSubscribers(result.id);
-      }
-    }, 24 * 60 * 60 * 1000);
-  }, msUntil8am());
-  logger.info(`Scheduler: "daily-newsletter" will start at 08:00 (in ${Math.round(msUntil8am() / 60000)}min)`);
-
-  let server;
-
-  if (sslKey && sslCert && fs.existsSync(sslKey) && fs.existsSync(sslCert)) {
-    const credentials = { key: fs.readFileSync(sslKey), cert: fs.readFileSync(sslCert) };
-    server = https.createServer(credentials, app);
-    server.listen(config.port, config.host, () => {
-      logger.info(`CHESSINVEST running at https://${config.host}:${config.port}`);
-    });
-    startWebSocket(server);
-  } else {
-    server = http.createServer(app);
-    server.listen(config.port, config.host, () => {
-      logger.info(`CHESSINVEST running at http://${config.host}:${config.port}`);
-    });
-    startWebSocket(server);
-    if (sslKey || sslCert) {
-      logger.warn('SSL configured but certificate files not found — falling back to HTTP');
-    }
-  }
-
-  if (!config.openRouter.apiKey && !config.anthropic.apiKey) {
-    logger.warn('No API key configured — AI features will use mock data');
-  }
-
-  function gracefulShutdown(signal) {
-    logger.info(`${signal} received — shutting down gracefully`);
-    server.close(() => {
-      stopAll();
-      closeDb();
-      logger.info('Server shut down');
-      process.exit(0);
-    });
     setTimeout(() => {
-      logger.error('Forced shutdown after timeout');
-      process.exit(1);
-    }, 10000).unref();
-  }
+      startJob('daily-newsletter', async () => {
+        const result = await generateDailyNewsletter();
+        if (result && !result.reused) {
+          await sendNewsletterToSubscribers(result.id);
+        }
+      }, 24 * 60 * 60 * 1000);
+    }, msUntil8am());
+    logger.info(`Scheduler: "daily-newsletter" will start at 08:00 (in ${Math.round(msUntil8am() / 60000)}min)`);
 
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('uncaughtException', (err) => {
-    logger.error(`Uncaught exception: ${err.message}`, { stack: err.stack });
-    gracefulShutdown('uncaughtException');
-  });
-  process.on('unhandledRejection', (reason) => {
-    logger.error(`Unhandled rejection: ${reason}`);
-  });
+    let server;
+
+    if (sslKey && sslCert && fs.existsSync(sslKey) && fs.existsSync(sslCert)) {
+      const credentials = { key: fs.readFileSync(sslKey), cert: fs.readFileSync(sslCert) };
+      server = https.createServer(credentials, app);
+      server.listen(config.port, config.host, () => {
+        logger.info(`CHESSINVEST running at https://${config.host}:${config.port}`);
+      });
+      startWebSocket(server);
+    } else {
+      server = http.createServer(app);
+      server.listen(config.port, config.host, () => {
+        logger.info(`CHESSINVEST running at http://${config.host}:${config.port}`);
+      });
+      startWebSocket(server);
+      if (sslKey || sslCert) {
+        logger.warn('SSL configured but certificate files not found — falling back to HTTP');
+      }
+    }
+
+    if (!config.openRouter.apiKey && !config.anthropic.apiKey) {
+      logger.warn('No API key configured — AI features will use mock data');
+    }
+
+    function gracefulShutdown(signal) {
+      logger.info(`${signal} received — shutting down gracefully`);
+      server.close(() => {
+        stopAll();
+        logger.info('Server shut down');
+        process.exit(0);
+      });
+      setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000).unref();
+    }
+
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('uncaughtException', (err) => {
+      logger.error(`Uncaught exception: ${err.message}`, { stack: err.stack });
+      gracefulShutdown('uncaughtException');
+    });
+    process.on('unhandledRejection', (reason) => {
+      logger.error(`Unhandled rejection: ${reason}`);
+    });
+  } catch (err) {
+    logger.error(`Fatal startup error: ${err.message}`);
+    process.exit(1);
+  }
 }
 
 startServer().catch((err) => {

@@ -1,7 +1,7 @@
 const Stripe = require('stripe');
 const config = require('../config');
 const logger = require('./logger');
-const { get, run } = require('./database');
+const { getSupabaseAdmin } = require('./supabase');
 
 const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null;
 
@@ -61,21 +61,28 @@ async function createCheckoutSession(userId, email, plan) {
 }
 
 async function handleWebhookEvent(event) {
-  const { get, run } = require('./database');
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Supabase not configured');
+  const now = new Date().toISOString();
 
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object;
-      const userId = parseInt(session.metadata.userId);
-      const plan = session.metadata.plan;
+      const userId = String(session.metadata?.userId || '');
+      const plan = session.metadata?.plan || 'free';
+      if (!userId) break;
 
-      await run(
-        `UPDATE subscriptions SET plan = ?, stripe_customer_id = ?, stripe_subscription_id = ?, 
-         status = 'active', current_period_start = datetime('now'), 
-         current_period_end = datetime('now', '+1 month'), updated_at = datetime('now')
-         WHERE user_id = ?`,
-        [plan, session.customer, session.subscription, userId],
-      );
+      const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await admin.from('subscriptions').upsert({
+        user_id: userId,
+        plan,
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
+        status: 'active',
+        current_period_start: now,
+        current_period_end: nextMonth,
+        updated_at: now,
+      }, { onConflict: 'user_id' });
       logger.info(`Subscription activated: user ${userId}, plan ${plan}`);
       break;
     }
@@ -83,26 +90,23 @@ async function handleWebhookEvent(event) {
     case 'customer.subscription.updated': {
       const sub = event.data.object;
       const customer = await stripe.customers.retrieve(sub.customer);
-      const userId = parseInt(customer.metadata.userId);
+      const userId = String(customer.metadata?.userId || '');
+      if (!userId) break;
 
       const plan = Object.keys(PLANS).find(p => {
         const priceId = PLANS[p].stripePriceId;
         return priceId && sub.items.data.some(item => item.price.id === priceId);
       }) || 'free';
 
-      await run(
-        `UPDATE subscriptions SET plan = ?, status = ?, current_period_start = ?, 
-         current_period_end = ?, cancel_at = ?, updated_at = datetime('now')
-         WHERE user_id = ?`,
-        [
-          plan,
-          sub.status,
-          new Date(sub.current_period_start * 1000).toISOString(),
-          new Date(sub.current_period_end * 1000).toISOString(),
-          sub.cancel_at ? new Date(sub.cancel_at * 1000).toISOString() : null,
-          userId,
-        ],
-      );
+      await admin.from('subscriptions').upsert({
+        user_id: userId,
+        plan,
+        status: sub.status,
+        current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+        cancel_at: sub.cancel_at ? new Date(sub.cancel_at * 1000).toISOString() : null,
+        updated_at: now,
+      }, { onConflict: 'user_id' });
       logger.info(`Subscription updated: user ${userId}, plan ${plan}, status ${sub.status}`);
       break;
     }
@@ -110,14 +114,16 @@ async function handleWebhookEvent(event) {
     case 'customer.subscription.deleted': {
       const sub = event.data.object;
       const customer = await stripe.customers.retrieve(sub.customer);
-      const userId = parseInt(customer.metadata.userId);
+      const userId = String(customer.metadata?.userId || '');
+      if (!userId) break;
 
-      await run(
-        `UPDATE subscriptions SET plan = 'free', status = 'cancelled', 
-         current_period_end = datetime('now'), updated_at = datetime('now')
-         WHERE user_id = ?`,
-        [userId],
-      );
+      await admin.from('subscriptions').upsert({
+        user_id: userId,
+        plan: 'free',
+        status: 'cancelled',
+        current_period_end: now,
+        updated_at: now,
+      }, { onConflict: 'user_id' });
       logger.info(`Subscription cancelled: user ${userId}`);
       break;
     }
@@ -139,16 +145,22 @@ async function createBillingPortalSession(customerId) {
 }
 
 async function getUserSubscription(userId) {
-  const sub = get('SELECT * FROM subscriptions WHERE user_id = ?', [userId]);
-  if (!sub) return { plan: 'free', status: 'active' };
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return { plan: 'free', status: 'active' };
+    const { data: sub } = await admin.from('subscriptions').select('*').eq('user_id', userId).single();
+    if (!sub) return { plan: 'free', status: 'active' };
 
-  return {
-    plan: sub.plan,
-    status: sub.status,
-    currentPeriodEnd: sub.current_period_end,
-    cancelAt: sub.cancel_at,
-    stripeCustomerId: sub.stripe_customer_id,
-  };
+    return {
+      plan: sub.plan,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end,
+      cancelAt: sub.cancel_at,
+      stripeCustomerId: sub.stripe_customer_id,
+    };
+  } catch {
+    return { plan: 'free', status: 'active' };
+  }
 }
 
 module.exports = {

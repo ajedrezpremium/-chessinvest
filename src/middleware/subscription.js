@@ -1,5 +1,6 @@
 const { getPlanLimits } = require('../services/stripe');
-const { get } = require('../services/database');
+const { getUserSubscription } = require('../services/supabaseAuth');
+const { getSupabaseAdmin } = require('../services/supabase');
 
 function requirePlan(minPlan) {
   const planOrder = ['free', 'basic', 'pro', 'premium'];
@@ -8,7 +9,7 @@ function requirePlan(minPlan) {
   return async (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Authentication required' });
 
-    const sub = await get('SELECT plan FROM subscriptions WHERE user_id = ?', [req.user.id]);
+    const sub = await getUserSubscription(req.user.id);
     const userPlan = sub?.plan || 'free';
     const userIndex = planOrder.indexOf(userPlan);
 
@@ -30,7 +31,7 @@ function checkLimit(limitType) {
   return async (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Authentication required' });
 
-    const sub = await get('SELECT plan FROM subscriptions WHERE user_id = ?', [req.user.id]);
+    const sub = await getUserSubscription(req.user.id);
     const userPlan = sub?.plan || 'free';
     const limits = getPlanLimits(userPlan);
     const limit = limits[limitType];
@@ -40,19 +41,24 @@ function checkLimit(limitType) {
       return next();
     }
 
-    let currentUsage;
-    switch (limitType) {
-      case 'watchlist':
-        currentUsage = (await get('SELECT COUNT(*) as count FROM watchlist WHERE user_id = ?', [req.user.id])).count;
-        break;
-      case 'alerts':
-        currentUsage = (await get("SELECT COUNT(*) as count FROM price_alerts WHERE user_id = ? AND active = 1", [req.user.id])).count;
-        break;
-      case 'portfolios':
-        currentUsage = (await get('SELECT COUNT(DISTINCT ticker) as count FROM portfolio WHERE user_id = ?', [req.user.id])).count;
-        break;
-      default:
+    const admin = getSupabaseAdmin();
+    let currentUsage = 0;
+
+    try {
+      if (limitType === 'watchlist') {
+        const { count } = await admin.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id);
+        currentUsage = count || 0;
+      } else if (limitType === 'alerts') {
+        const { count } = await admin.from('price_alerts').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id).eq('active', 1);
+        currentUsage = count || 0;
+      } else if (limitType === 'portfolios') {
+        const { data } = await admin.from('portfolio').select('ticker').eq('user_id', req.user.id);
+        currentUsage = new Set((data || []).map((r) => r.ticker)).size;
+      } else {
         return next();
+      }
+    } catch {
+      return next();
     }
 
     if (currentUsage >= limit) {

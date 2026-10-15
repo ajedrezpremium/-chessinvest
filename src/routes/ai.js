@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { callAI } = require('../services/aiProvider');
-const { run } = require('../services/database');
+const { getSupabaseAdmin } = require('../services/supabase');
 const { optionalAuth } = require('../middleware/auth');
 const logger = require('../services/logger');
 
@@ -29,11 +29,22 @@ async function saveRecommendations(userId, text) {
     const acciones = parsed.acciones || [];
     if (!acciones.length) return;
 
-    const insert = 'INSERT INTO recommendation_history (user_id, ticker, score, reason, catalyst, risk, sector, price_at_recommendation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const admin = getSupabaseAdmin();
+    if (!admin) return;
 
-    for (const a of acciones) {
-      await run(insert, [userId, a.ticker, a.puntuacion, a.razon, a.catalizador, a.riesgo, a.sector, a.precio]);
-    }
+    const rows = acciones.map((a) => ({
+      user_id: userId,
+      ticker: a.ticker,
+      score: a.puntuacion,
+      reason: a.razon,
+      catalyst: a.catalizador,
+      risk: a.riesgo,
+      sector: a.sector,
+      price_at_recommendation: a.precio,
+    }));
+
+    const { error } = await admin.from('recommendation_history').insert(rows);
+    if (error) throw error;
     logger.info(`Saved ${acciones.length} recommendations for user ${userId}`);
   } catch {
     // Silently fail - saving history is best-effort

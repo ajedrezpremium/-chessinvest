@@ -8,7 +8,7 @@ const {
   getUserSubscription,
   stripe,
 } = require('../services/stripe');
-const { get } = require('../services/database');
+const { getSupabaseAdmin } = require('../services/supabase');
 const config = require('../config');
 
 const router = Router();
@@ -39,7 +39,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
 router.post('/billing-portal', requireAuth, async (req, res) => {
   try {
-    const sub = await get('SELECT stripe_customer_id FROM subscriptions WHERE user_id = ?', [req.user.id]);
+    const admin = getSupabaseAdmin();
+    const { data: sub } = await admin.from('subscriptions').select('stripe_customer_id').eq('user_id', req.user.id).single();
     if (!sub?.stripe_customer_id) {
       return res.status(400).json({ error: 'No active subscription found' });
     }
@@ -56,15 +57,19 @@ router.get('/status', requireAuth, async (req, res) => {
     const subscription = await getUserSubscription(req.user.id);
     const limits = require('../services/stripe').getPlanLimits(subscription.plan);
 
-    const watchlistCount = (await get('SELECT COUNT(*) as count FROM watchlist WHERE user_id = ?', [req.user.id])).count;
-    const alertCount = (await get("SELECT COUNT(*) as count FROM price_alerts WHERE user_id = ? AND active = 1", [req.user.id])).count;
-    const portfolioCount = (await get('SELECT COUNT(DISTINCT ticker) as count FROM portfolio WHERE user_id = ?', [req.user.id])).count;
+    const admin = getSupabaseAdmin();
+    const [{ count: watchlistCount }, { count: alertCount }, { data: portfolioRows }] = await Promise.all([
+      admin.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
+      admin.from('price_alerts').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id).eq('active', 1),
+      admin.from('portfolio').select('ticker').eq('user_id', req.user.id),
+    ]);
+    const portfolioCount = new Set((portfolioRows || []).map((r) => r.ticker)).size;
 
     res.json({
       ...subscription,
       limits: {
-        watchlist: { current: watchlistCount, max: limits.watchlist },
-        alerts: { current: alertCount, max: limits.alerts },
+        watchlist: { current: watchlistCount || 0, max: limits.watchlist },
+        alerts: { current: alertCount || 0, max: limits.alerts },
         portfolios: { current: portfolioCount, max: limits.portfolios },
         aiAnalysisPerDay: limits.aiAnalysisPerDay,
         recommendations: limits.recommendations,

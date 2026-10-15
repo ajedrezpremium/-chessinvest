@@ -1,4 +1,4 @@
-const { run, all, get, saveDb } = require('./database');
+const { getSupabaseAdmin } = require('./supabase');
 const logger = require('./logger');
 const { getAllIndices } = require('./marketDataService');
 const { fetchEconomicCalendar, formatCalendarContext } = require('./economicCalendar');
@@ -45,7 +45,7 @@ Resumen ejecutivo de 2-3 párrafos sobre el estado actual de los mercados global
 (10 ítems numerados con emojis según impacto: 🔴 alto, 🟡 medio, 🟢 positivo)
 
 === PARA HOY ===
-3-5催化 eventos clave a vigilar hoy (decisiones de tipos, datos macro, resultados empresariales)
+3-5 eventos clave a vigilar hoy (decisiones de tipos, datos macro, resultados empresariales)
 
 === ESTRATEGIA ===
 Recomendación general de posicionamiento para el día (defensivo, agresivo, esperar)
@@ -92,7 +92,18 @@ IMPORTANTE: Escribe en español neutro, tono profesional pero accesible. Sin opi
 
 async function generateDailyNewsletter() {
   try {
-    const existing = get("SELECT id FROM newsletters WHERE generated_at >= datetime('now', '-1 day') ORDER BY generated_at DESC LIMIT 1");
+    const admin = getSupabaseAdmin();
+    if (!admin) throw new Error('Supabase not configured');
+
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: existing } = await admin
+      .from('newsletters')
+      .select('id')
+      .gte('generated_at', cutoff)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .single();
+
     if (existing) {
       logger.info('Newsletter already generated today, skipping');
       return { id: existing.id, reused: true };
@@ -100,13 +111,14 @@ async function generateDailyNewsletter() {
 
     const { title, content, summary, top_tickers } = await generateNewsletterContent();
 
-    const result = run(
-      'INSERT INTO newsletters (title, content, summary, top_tickers) VALUES (?, ?, ?, ?)',
-      [title, content, summary, top_tickers || null]
-    );
-    saveDb();
-    logger.info(`Newsletter generated: "${title}" (id=${result.lastID})`);
-    return { id: result.lastID, title, reused: false };
+    const { data, error } = await admin
+      .from('newsletters')
+      .insert({ title, content, summary, top_tickers: top_tickers || null })
+      .select('id')
+      .single();
+    if (error) throw error;
+    logger.info(`Newsletter generated: "${title}" (id=${data.id})`);
+    return { id: data.id, title, reused: false };
   } catch (err) {
     logger.error(`Failed to generate newsletter: ${err.message}`);
     return null;
@@ -115,11 +127,16 @@ async function generateDailyNewsletter() {
 
 async function sendNewsletterToSubscribers(newsletterId) {
   try {
-    let newsletter;
+    const admin = getSupabaseAdmin();
+    if (!admin) throw new Error('Supabase not configured');
+
+    let newsletter = null;
     if (newsletterId) {
-      newsletter = get('SELECT * FROM newsletters WHERE id = ?', [newsletterId]);
+      const { data } = await admin.from('newsletters').select('*').eq('id', newsletterId).single();
+      newsletter = data;
     } else {
-      newsletter = get("SELECT * FROM newsletters ORDER BY generated_at DESC LIMIT 1");
+      const { data } = await admin.from('newsletters').select('*').order('generated_at', { ascending: false }).limit(1).single();
+      newsletter = data;
     }
 
     if (!newsletter) {
@@ -127,13 +144,22 @@ async function sendNewsletterToSubscribers(newsletterId) {
       return { sent: 0 };
     }
 
-    const subscribers = all(
-      `SELECT u.id, u.email, u.username FROM users u
-       JOIN user_settings s ON u.id = s.user_id
-       WHERE s.newsletter_subscribed = 1 AND u.email IS NOT NULL AND u.email != ''`
-    );
+    const { data: settings } = await admin
+      .from('user_settings')
+      .select('user_id')
+      .eq('newsletter_subscribed', 1);
 
-    if (!subscribers || subscribers.length === 0) {
+    const userIds = (settings || []).map((s) => s.user_id);
+    let subscribers = [];
+    if (userIds.length) {
+      const { data: users } = await admin
+        .from('users')
+        .select('id, email, username')
+        .in('id', userIds);
+      subscribers = (users || []).filter((u) => u.email);
+    }
+
+    if (!subscribers.length) {
       logger.info('No newsletter subscribers');
       return { sent: 0 };
     }
@@ -148,8 +174,7 @@ async function sendNewsletterToSubscribers(newsletterId) {
       if (ok) sent++;
     }
 
-    run('UPDATE newsletters SET sent_count = ? WHERE id = ?', [sent, newsletter.id]);
-    saveDb();
+    await admin.from('newsletters').update({ sent_count: sent }).eq('id', newsletter.id);
     logger.info(`Newsletter sent to ${sent}/${subscribers.length} subscribers`);
     return { sent, total: subscribers.length };
   } catch (err) {
@@ -159,15 +184,34 @@ async function sendNewsletterToSubscribers(newsletterId) {
 }
 
 async function getLatestNewsletter() {
-  return get("SELECT * FROM newsletters ORDER BY generated_at DESC LIMIT 1") || null;
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return null;
+    const { data } = await admin.from('newsletters').select('*').order('generated_at', { ascending: false }).limit(1).single();
+    return data || null;
+  } catch {
+    return null;
+  }
 }
 
-function getNewsletterSubscribers() {
-  return all(
-    `SELECT u.id, u.email, u.username FROM users u
-     JOIN user_settings s ON u.id = s.user_id
-     WHERE s.newsletter_subscribed = 1 AND u.email IS NOT NULL AND u.email != ''`
-  );
+async function getNewsletterSubscribers() {
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return [];
+    const { data: settings } = await admin
+      .from('user_settings')
+      .select('user_id')
+      .eq('newsletter_subscribed', 1);
+    const userIds = (settings || []).map((s) => s.user_id);
+    if (!userIds.length) return [];
+    const { data: users } = await admin
+      .from('users')
+      .select('id, email, username')
+      .in('id', userIds);
+    return (users || []).filter((u) => u.email);
+  } catch {
+    return [];
+  }
 }
 
 module.exports = { generateDailyNewsletter, sendNewsletterToSubscribers, getLatestNewsletter, getNewsletterSubscribers };

@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const { get } = require('./database');
+const { getSupabaseAdmin } = require('./supabase');
 const logger = require('./logger');
 
 const config = {
@@ -137,10 +137,13 @@ async function sendEmail(to, type, data = {}) {
 
 async function sendNotificationEmail(userId, type, title, body, data = null) {
   try {
-    const user = get('SELECT email, username FROM users WHERE id = ?', [userId]);
+    const admin = getSupabaseAdmin();
+    if (!admin) return false;
+
+    const { data: user } = await admin.from('users').select('email, username').eq('id', userId).single();
     if (!user || !user.email) return false;
 
-    const prefs = get('SELECT notifications_email FROM user_settings WHERE user_id = ?', [userId]);
+    const { data: prefs } = await admin.from('user_settings').select('notifications_email').eq('user_id', userId).single();
     if (prefs && !prefs.notifications_email) return false;
 
     return await sendEmail(user.email, type, { ...data, title, body, username: user.username });

@@ -9,8 +9,7 @@ const { runBacktest, formatBacktestContext } = require('../services/backtestServ
 const { detectPatternsForSymbol, formatPatternSummary } = require('../services/patternDetector');
 const { getCorrelationMatrix, formatCorrelationMatrix } = require('../services/correlationMatrix');
 const { optionalAuth } = require('../middleware/auth');
-const { get, all, run } = require('../services/database');
-const { saveDb } = require('../services/database');
+const { getSupabaseAdmin } = require('../services/supabase');
 const logger = require('../services/logger');
 const { createNotification } = require('../services/notificationService');
 
@@ -48,38 +47,49 @@ const FUTURES_TICKERS = {
 
 const MAX_CONVERSATION_HISTORY = 20;
 
-function getConversationHistory(userId) {
+async function getConversationHistory(userId) {
   if (!userId) return [];
   try {
-    return all(
-      "SELECT role, message FROM conversation_history WHERE user_id = ? AND agent = 'stockbroker' ORDER BY created_at ASC",
-      [userId]
-    );
+    const admin = getSupabaseAdmin();
+    if (!admin) return [];
+    const { data, error } = await admin
+      .from('conversation_history')
+      .select('role, message')
+      .eq('user_id', userId)
+      .eq('agent', 'stockbroker')
+      .order('created_at', { ascending: true })
+      .limit(MAX_CONVERSATION_HISTORY);
+    if (error) throw error;
+    return data || [];
   } catch (err) {
     logger.warn(`Failed to fetch conversation history: ${err.message}`);
     return [];
   }
 }
 
-function addConversationMessage(userId, role, message) {
+async function addConversationMessage(userId, role, message) {
   if (!userId) return;
   try {
-    run(
-      "INSERT INTO conversation_history (user_id, role, agent, message) VALUES (?, ?, 'stockbroker', ?)",
-      [userId, role, message.substring(0, 500)]
-    );
+    const admin = getSupabaseAdmin();
+    if (!admin) return;
+    await admin.from('conversation_history').insert({
+      user_id: userId,
+      role,
+      agent: 'stockbroker',
+      message: String(message || '').substring(0, 500),
+    });
+
     // Keep only last N messages per user per agent
-    const count = get(
-      "SELECT COUNT(*) as cnt FROM conversation_history WHERE user_id = ? AND agent = 'stockbroker'",
-      [userId]
-    );
-    if (count && count.cnt > MAX_CONVERSATION_HISTORY) {
-      run(
-        "DELETE FROM conversation_history WHERE id IN (SELECT id FROM conversation_history WHERE user_id = ? AND agent = 'stockbroker' ORDER BY created_at ASC LIMIT ?)",
-        [userId, count.cnt - MAX_CONVERSATION_HISTORY]
-      );
+    const { data } = await admin
+      .from('conversation_history')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('agent', 'stockbroker')
+      .order('created_at', { ascending: true });
+    if (data && data.length > MAX_CONVERSATION_HISTORY) {
+      const toDelete = data.slice(0, data.length - MAX_CONVERSATION_HISTORY).map((r) => r.id);
+      await admin.from('conversation_history').delete().in('id', toDelete);
     }
-    saveDb();
   } catch (err) {
     logger.warn(`Failed to save conversation message: ${err.message}`);
   }
@@ -93,8 +103,12 @@ function formatConversationHistory(history) {
 async function getUserPortfolioContext(userId) {
   if (!userId) return null;
   try {
-    const portfolio = await all('SELECT ticker, shares, avg_price FROM portfolio WHERE user_id = ? ORDER BY added_at DESC', [userId]);
-    const watchlist = await all('SELECT ticker FROM watchlist WHERE user_id = ? ORDER BY added_at DESC', [userId]);
+    const admin = getSupabaseAdmin();
+    if (!admin) return null;
+    const [{ data: portfolio }, { data: watchlist }] = await Promise.all([
+      admin.from('portfolio').select('ticker, shares, avg_price').eq('user_id', userId).order('added_at', { ascending: false }),
+      admin.from('watchlist').select('ticker').eq('user_id', userId).order('added_at', { ascending: false }),
+    ]);
     if (!portfolio?.length && !watchlist?.length) return null;
     let context = '';
     if (portfolio?.length) {
@@ -117,11 +131,12 @@ async function getUserPortfolioContext(userId) {
 async function getSignalPnL(userId) {
   if (!userId) return null;
   try {
-    const portfolio = await all('SELECT ticker, shares, avg_price FROM portfolio WHERE user_id = ?', [userId]);
-    const signals = await all(
-      "SELECT * FROM signal_history WHERE user_id = ? AND agent = 'stockbroker' ORDER BY created_at DESC LIMIT 20",
-      [userId]
-    );
+    const admin = getSupabaseAdmin();
+    if (!admin) return null;
+    const [{ data: portfolio }, { data: signals }] = await Promise.all([
+      admin.from('portfolio').select('ticker, shares, avg_price').eq('user_id', userId),
+      admin.from('signal_history').select('*').eq('user_id', userId).eq('agent', 'stockbroker').order('created_at', { ascending: false }).limit(20),
+    ]);
     if (!portfolio?.length || !signals?.length) return null;
 
     const matches = [];
@@ -241,8 +256,8 @@ router.post('/chat', optionalAuth, async (req, res) => {
       ...taSymbols.map(sym => getMultiTimeframeAnalysis(sym, message)),
     ]);
 
-    const conversationHistory = getConversationHistory(req.user?.id);
-    addConversationMessage(req.user?.id, 'user', message);
+    const conversationHistory = await getConversationHistory(req.user?.id);
+    await addConversationMessage(req.user?.id, 'user', message);
 
     const futuresContext = futures.map(f => `${f.name}: ${f.val} (${f.chg})`).join(', ');
     const marketContext = markets.slice(0, 6).map(m => `${m.name}: ${m.val} (${m.chg})`).join(', ');
@@ -276,7 +291,7 @@ router.post('/chat', optionalAuth, async (req, res) => {
 
     if (status !== 200 || !aiResponse?.content?.[0]?.text) {
       const fallback = generateFallback(message);
-      addConversationMessage(req.user?.id, 'ai', fallback);
+      await addConversationMessage(req.user?.id, 'ai', fallback);
       return res.json({
         response: fallback,
         wisdom,
@@ -284,7 +299,7 @@ router.post('/chat', optionalAuth, async (req, res) => {
       });
     }
 
-    addConversationMessage(req.user?.id, 'ai', aiResponse.content[0].text);
+    await addConversationMessage(req.user?.id, 'ai', aiResponse.content[0].text);
 
     const autoSignal = extractSignalFromResponse(aiResponse.content[0].text, detectedFutures);
     let signalId = null;
@@ -333,7 +348,7 @@ router.post('/chat', optionalAuth, async (req, res) => {
   } catch (err) {
     logger.error(`Stockbroker chat error: ${err.message}`);
     const fallback = generateFallback(req.body?.message || '');
-    addConversationMessage(req.user?.id, 'ai', fallback);
+    await addConversationMessage(req.user?.id, 'ai', fallback);
     res.json({
       response: fallback,
       error: err.message,
@@ -365,13 +380,13 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
     ...taSymbols.map(sym => getMultiTimeframeAnalysis(sym, message)),
   ]);
 
-  addConversationMessage(req.user?.id, 'user', message);
+  await addConversationMessage(req.user?.id, 'user', message);
 
   const futuresContext = futures.map(f => `${f.name}: ${f.val} (${f.chg})`).join(', ');
   const marketContext = markets.slice(0, 6).map(m => `${m.name}: ${m.val} (${m.chg})`).join(', ');
   const wisdom = FUTURES_WISDOM[Math.floor(Math.random() * FUTURES_WISDOM.length)];
   const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
-  const conversationHistory = getConversationHistory(req.user?.id);
+  const conversationHistory = await getConversationHistory(req.user?.id);
   const conversationBlock = formatConversationHistory(conversationHistory);
   const mtaBlock = mtaResults.filter(Boolean).map(m => formatMultiTimeframeContext(m)).join('\n\n');
 
@@ -407,7 +422,7 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
     },
     async (result) => {
       if (result?.content?.[0]?.text) {
-        addConversationMessage(req.user?.id, 'ai', result.content[0].text);
+        await addConversationMessage(req.user?.id, 'ai', result.content[0].text);
 
         const autoSignal = extractSignalFromResponse(result.content[0].text, detectedFutures);
         let signalId = null;
@@ -459,9 +474,17 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
 
 router.get('/signals', optionalAuth, async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const signals = await all('SELECT * FROM signal_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?', [req.user?.id || 0, limit]);
-    res.json({ signals });
+    if (!admin || !req.user?.id) return res.json({ signals: [] });
+    const { data: signals, error } = await admin
+      .from('signal_history')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    res.json({ signals: signals || [] });
   } catch (err) {
     logger.error(`Signal history error: ${err.message}`);
     res.json({ signals: [] });
@@ -470,13 +493,29 @@ router.get('/signals', optionalAuth, async (req, res) => {
 
 router.post('/signals', optionalAuth, async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return res.status(500).json({ error: 'Database not configured' });
     const { asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, rationale } = req.body;
     if (!asset || !direction) return res.status(400).json({ error: 'Asset and direction required' });
-    const result = await run(
-      'INSERT INTO signal_history (user_id, agent, asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, rationale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user?.id || 0, 'stockbroker', asset.toUpperCase(), direction, entry_price || null, stop_loss || null, take_profit || null, score || null, confidence || null, risk_reward || null, rationale || null]
-    );
-    res.status(201).json({ id: result.lastID });
+    const { data, error } = await admin
+      .from('signal_history')
+      .insert({
+        user_id: req.user?.id || null,
+        agent: 'stockbroker',
+        asset: asset.toUpperCase(),
+        direction,
+        entry_price: entry_price || null,
+        stop_loss: stop_loss || null,
+        take_profit: take_profit || null,
+        score: score || null,
+        confidence: confidence || null,
+        risk_reward: risk_reward || null,
+        rationale: rationale || null,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    res.status(201).json({ id: data.id });
   } catch (err) {
     logger.error(`Signal save error: ${err.message}`);
     res.status(500).json({ error: 'Failed to save signal' });
@@ -522,19 +561,32 @@ function extractSignalFromResponse(text, detectedTickers) {
 async function autoSaveSignal(userId, signal) {
   if (!signal || !signal.direction) return null;
   try {
-    const result = await run(
-      `INSERT INTO signal_history (user_id, agent, asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, rationale)
-       VALUES (?, 'stockbroker', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId || 0, signal.asset, signal.direction, signal.entry_price, signal.stop_loss,
-       signal.take_profit, signal.score, signal.confidence, signal.risk_reward, signal.rationale]
-    );
-    saveDb();
-    logger.info(`Auto-signal saved: ${signal.direction} ${signal.asset} (id=${result.lastID})`);
+    const admin = getSupabaseAdmin();
+    if (!admin) return null;
+    const { data, error } = await admin
+      .from('signal_history')
+      .insert({
+        user_id: userId || null,
+        agent: 'stockbroker',
+        asset: signal.asset,
+        direction: signal.direction,
+        entry_price: signal.entry_price,
+        stop_loss: signal.stop_loss,
+        take_profit: signal.take_profit,
+        score: signal.score,
+        confidence: signal.confidence,
+        risk_reward: signal.risk_reward,
+        rationale: signal.rationale,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    logger.info(`Auto-signal saved: ${signal.direction} ${signal.asset} (id=${data.id})`);
     createNotification(userId, 'signal',
       `⚡ ${signal.direction} ${signal.asset}`,
       `Entry: $${signal.entry_price || '—'} Stop: $${signal.stop_loss || '—'} TP: $${signal.take_profit || '—'}`
     );
-    return result.lastID;
+    return data.id;
   } catch (err) {
     logger.warn(`Auto-signal save failed: ${err.message}`);
     return null;

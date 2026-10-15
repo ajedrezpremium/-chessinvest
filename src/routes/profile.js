@@ -1,7 +1,22 @@
 const { Router } = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { get, all, run } = require('../services/database');
-const { hashPassword, verifyPassword } = require('../services/auth');
+const { updatePassword } = require('../services/supabaseAuth');
+const {
+  getUserSettings,
+  updateUserSettings,
+  getGoals,
+  getIdeas,
+  getAlerts,
+  getWatchlist,
+  getPortfolio,
+  getProfileSummary,
+  select,
+  insert,
+  update,
+  upsert,
+  remove,
+} = require('../services/supabaseDb');
+const logger = require('../services/logger');
 
 const router = Router();
 
@@ -9,40 +24,41 @@ const router = Router();
 
 router.get('/settings', requireAuth, async (req, res) => {
   try {
-    const settings = await get('SELECT * FROM user_settings WHERE user_id = ?', [req.user.id]);
+    const settings = await getUserSettings(req.user.id);
     if (!settings) {
-      await run('INSERT INTO user_settings (user_id) VALUES (?)', [req.user.id]);
-      const newSettings = await get('SELECT * FROM user_settings WHERE user_id = ?', [req.user.id]);
+      const newSettings = await updateUserSettings(req.user.id, {});
       return res.json(newSettings);
     }
     res.json(settings);
   } catch (err) {
+    logger.error(`Get settings error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get settings' });
   }
 });
 
 router.put('/settings', requireAuth, async (req, res) => {
   try {
-    const { theme, notifications_email, notifications_sms, language, timezone, voice_enabled, voice_input_enabled, voice_rate, voice_pitch, voice_lang } = req.body;
+    const allowedFields = [
+      'theme',
+      'notifications_email',
+      'notifications_sms',
+      'language',
+      'timezone',
+      'voice_enabled',
+      'voice_input_enabled',
+      'voice_rate',
+      'voice_pitch',
+      'voice_lang',
+    ];
     const updates = {};
-    if (theme !== undefined) updates.theme = theme;
-    if (notifications_email !== undefined) updates.notifications_email = notifications_email;
-    if (notifications_sms !== undefined) updates.notifications_sms = notifications_sms;
-    if (language !== undefined) updates.language = language;
-    if (timezone !== undefined) updates.timezone = timezone;
-    if (voice_enabled !== undefined) updates.voice_enabled = voice_enabled;
-    if (voice_input_enabled !== undefined) updates.voice_input_enabled = voice_input_enabled;
-    if (voice_rate !== undefined) updates.voice_rate = voice_rate;
-    if (voice_pitch !== undefined) updates.voice_pitch = voice_pitch;
-    if (voice_lang !== undefined) updates.voice_lang = voice_lang;
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
 
-    const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
-    const values = [...Object.values(updates), req.user.id];
-
-    await run(`UPDATE user_settings SET ${fields}, updated_at = datetime('now') WHERE user_id = ?`, values);
-    const settings = await get('SELECT * FROM user_settings WHERE user_id = ?', [req.user.id]);
+    const settings = await updateUserSettings(req.user.id, updates);
     res.json(settings);
   } catch (err) {
+    logger.error(`Update settings error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update settings', details: err.message });
   }
 });
@@ -51,9 +67,10 @@ router.put('/settings', requireAuth, async (req, res) => {
 
 router.get('/goals', requireAuth, async (req, res) => {
   try {
-    const goals = await all('SELECT * FROM goals WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+    const goals = await getGoals(req.user.id);
     res.json(goals);
   } catch (err) {
+    logger.error(`Get goals error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get goals' });
   }
 });
@@ -64,13 +81,16 @@ router.post('/goals', requireAuth, async (req, res) => {
     if (!title || !target_amount) {
       return res.status(400).json({ error: 'Title and target_amount required' });
     }
-    const result = await run(
-      'INSERT INTO goals (user_id, title, target_amount, deadline, type) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, title, target_amount, deadline || null, type || 'savings'],
-    );
-    const goal = await get('SELECT * FROM goals WHERE id = ?', [result.lastID]);
+    const goal = await insert('goals', {
+      user_id: req.user.id,
+      title,
+      target_amount,
+      deadline: deadline || null,
+      type: type || 'savings',
+    });
     res.status(201).json(goal);
   } catch (err) {
+    logger.error(`Create goal error: ${err.message}`);
     res.status(500).json({ error: 'Failed to create goal' });
   }
 });
@@ -78,26 +98,29 @@ router.post('/goals', requireAuth, async (req, res) => {
 router.put('/goals/:id', requireAuth, async (req, res) => {
   try {
     const { title, target_amount, current_amount, deadline, type } = req.body;
-    await run(
-      `UPDATE goals SET title = COALESCE(?, title), target_amount = COALESCE(?, target_amount),
-       current_amount = COALESCE(?, current_amount), deadline = COALESCE(?, deadline),
-       type = COALESCE(?, type) WHERE id = ? AND user_id = ?`,
-      [title, target_amount, current_amount, deadline, type, req.params.id, req.user.id],
-    );
-    const goal = await get('SELECT * FROM goals WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (target_amount !== undefined) updates.target_amount = target_amount;
+    if (current_amount !== undefined) updates.current_amount = current_amount;
+    if (deadline !== undefined) updates.deadline = deadline;
+    if (type !== undefined) updates.type = type;
+    updates.updated_at = new Date().toISOString();
+
+    const goal = await update('goals', req.params.id, updates);
     if (!goal) return res.status(404).json({ error: 'Goal not found' });
     res.json(goal);
   } catch (err) {
+    logger.error(`Update goal error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update goal' });
   }
 });
 
 router.delete('/goals/:id', requireAuth, async (req, res) => {
   try {
-    const result = await run('DELETE FROM goals WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-    if (result.changes === 0) return res.status(404).json({ error: 'Goal not found' });
+    await remove('goals', req.params.id);
     res.json({ success: true });
   } catch (err) {
+    logger.error(`Delete goal error: ${err.message}`);
     res.status(500).json({ error: 'Failed to delete goal' });
   }
 });
@@ -106,9 +129,10 @@ router.delete('/goals/:id', requireAuth, async (req, res) => {
 
 router.get('/ideas', requireAuth, async (req, res) => {
   try {
-    const ideas = await all('SELECT * FROM investment_ideas WHERE user_id = ? ORDER BY updated_at DESC', [req.user.id]);
+    const ideas = await getIdeas(req.user.id);
     res.json(ideas);
   } catch (err) {
+    logger.error(`Get ideas error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get ideas' });
   }
 });
@@ -117,13 +141,16 @@ router.post('/ideas', requireAuth, async (req, res) => {
   try {
     const { ticker, thesis, notes, status } = req.body;
     if (!ticker) return res.status(400).json({ error: 'Ticker required' });
-    const result = await run(
-      'INSERT INTO investment_ideas (user_id, ticker, thesis, notes, status) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, ticker, thesis || '', notes || '', status || 'pending'],
-    );
-    const idea = await get('SELECT * FROM investment_ideas WHERE id = ?', [result.lastID]);
+    const idea = await insert('investment_ideas', {
+      user_id: req.user.id,
+      ticker,
+      thesis: thesis || '',
+      notes: notes || '',
+      status: status || 'pending',
+    });
     res.status(201).json(idea);
   } catch (err) {
+    logger.error(`Create idea error: ${err.message}`);
     res.status(500).json({ error: 'Failed to create idea' });
   }
 });
@@ -131,26 +158,27 @@ router.post('/ideas', requireAuth, async (req, res) => {
 router.put('/ideas/:id', requireAuth, async (req, res) => {
   try {
     const { ticker, thesis, notes, status } = req.body;
-    await run(
-      `UPDATE investment_ideas SET ticker = COALESCE(?, ticker), thesis = COALESCE(?, thesis),
-       notes = COALESCE(?, notes), status = COALESCE(?, status),
-       updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
-      [ticker, thesis, notes, status, req.params.id, req.user.id],
-    );
-    const idea = await get('SELECT * FROM investment_ideas WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    const updates = { updated_at: new Date().toISOString() };
+    if (ticker !== undefined) updates.ticker = ticker;
+    if (thesis !== undefined) updates.thesis = thesis;
+    if (notes !== undefined) updates.notes = notes;
+    if (status !== undefined) updates.status = status;
+
+    const idea = await update('investment_ideas', req.params.id, updates);
     if (!idea) return res.status(404).json({ error: 'Idea not found' });
     res.json(idea);
   } catch (err) {
+    logger.error(`Update idea error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update idea' });
   }
 });
 
 router.delete('/ideas/:id', requireAuth, async (req, res) => {
   try {
-    const result = await run('DELETE FROM investment_ideas WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-    if (result.changes === 0) return res.status(404).json({ error: 'Idea not found' });
+    await remove('investment_ideas', req.params.id);
     res.json({ success: true });
   } catch (err) {
+    logger.error(`Delete idea error: ${err.message}`);
     res.status(500).json({ error: 'Failed to delete idea' });
   }
 });
@@ -159,9 +187,10 @@ router.delete('/ideas/:id', requireAuth, async (req, res) => {
 
 router.get('/alerts', requireAuth, async (req, res) => {
   try {
-    const alerts = await all('SELECT * FROM price_alerts WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+    const alerts = await getAlerts(req.user.id);
     res.json(alerts);
   } catch (err) {
+    logger.error(`Get alerts error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get alerts' });
   }
 });
@@ -175,13 +204,15 @@ router.post('/alerts', requireAuth, async (req, res) => {
     if (!['above', 'below'].includes(direction)) {
       return res.status(400).json({ error: 'Direction must be "above" or "below"' });
     }
-    const result = await run(
-      'INSERT INTO price_alerts (user_id, ticker, target_price, direction) VALUES (?, ?, ?, ?)',
-      [req.user.id, ticker, target_price, direction],
-    );
-    const alert = await get('SELECT * FROM price_alerts WHERE id = ?', [result.lastID]);
+    const alert = await insert('price_alerts', {
+      user_id: req.user.id,
+      ticker,
+      target_price,
+      direction,
+    });
     res.status(201).json(alert);
   } catch (err) {
+    logger.error(`Create alert error: ${err.message}`);
     res.status(500).json({ error: 'Failed to create alert' });
   }
 });
@@ -189,24 +220,25 @@ router.post('/alerts', requireAuth, async (req, res) => {
 router.put('/alerts/:id', requireAuth, async (req, res) => {
   try {
     const { target_price, active } = req.body;
-    await run(
-      'UPDATE price_alerts SET target_price = COALESCE(?, target_price), active = COALESCE(?, active) WHERE id = ? AND user_id = ?',
-      [target_price, active, req.params.id, req.user.id],
-    );
-    const alert = await get('SELECT * FROM price_alerts WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    const updates = {};
+    if (target_price !== undefined) updates.target_price = target_price;
+    if (active !== undefined) updates.active = active;
+
+    const alert = await update('price_alerts', req.params.id, updates);
     if (!alert) return res.status(404).json({ error: 'Alert not found' });
     res.json(alert);
   } catch (err) {
+    logger.error(`Update alert error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update alert' });
   }
 });
 
 router.delete('/alerts/:id', requireAuth, async (req, res) => {
   try {
-    const result = await run('DELETE FROM price_alerts WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-    if (result.changes === 0) return res.status(404).json({ error: 'Alert not found' });
+    await remove('price_alerts', req.params.id);
     res.json({ success: true });
   } catch (err) {
+    logger.error(`Delete alert error: ${err.message}`);
     res.status(500).json({ error: 'Failed to delete alert' });
   }
 });
@@ -215,9 +247,10 @@ router.delete('/alerts/:id', requireAuth, async (req, res) => {
 
 router.get('/watchlist', requireAuth, async (req, res) => {
   try {
-    const watchlist = await all('SELECT * FROM watchlist WHERE user_id = ? ORDER BY added_at DESC', [req.user.id]);
+    const watchlist = await getWatchlist(req.user.id);
     res.json(watchlist);
   } catch (err) {
+    logger.error(`Get watchlist error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get watchlist' });
   }
 });
@@ -226,28 +259,10 @@ router.get('/watchlist', requireAuth, async (req, res) => {
 
 router.get('/summary', requireAuth, async (req, res) => {
   try {
-    const user = await get('SELECT id, email, username, created_at FROM users WHERE id = ?', [req.user.id]);
-    const sub = await get('SELECT plan, status, current_period_end, cancel_at FROM subscriptions WHERE user_id = ?', [req.user.id]);
-    const settings = await get('SELECT theme, language, timezone FROM user_settings WHERE user_id = ?', [req.user.id]);
-    const goals = await all('SELECT * FROM goals WHERE user_id = ?', [req.user.id]);
-    const ideas = await all('SELECT * FROM investment_ideas WHERE user_id = ?', [req.user.id]);
-    const alerts = await all('SELECT * FROM price_alerts WHERE user_id = ? AND active = 1', [req.user.id]);
-    const watchlist = await all('SELECT * FROM watchlist WHERE user_id = ?', [req.user.id]);
-    const portfolio = await all('SELECT * FROM portfolio WHERE user_id = ?', [req.user.id]);
-
-    res.json({
-      user,
-      subscription: sub,
-      settings,
-      stats: {
-        goalsCount: goals.length,
-        ideasCount: ideas.length,
-        activeAlerts: alerts.length,
-        watchlistCount: watchlist.length,
-        portfolioCount: portfolio.length,
-      },
-    });
+    const summary = await getProfileSummary(req.user.id);
+    res.json(summary);
   } catch (err) {
+    logger.error(`Get profile summary error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get profile summary' });
   }
 });
@@ -256,16 +271,25 @@ router.get('/summary', requireAuth, async (req, res) => {
 
 router.put('/personal', requireAuth, async (req, res) => {
   try {
-    const { first_name, last_name, phone, birth_date, country, investor_profile, experience } = req.body;
-    console.log('Updating personal data for user:', req.user.id, 'with:', { first_name, last_name, phone, birth_date, country, investor_profile, experience });
-    await run(
-      `UPDATE users SET first_name = ?, last_name = ?, phone = ?, birth_date = ?, country = ?, investor_profile = ?, experience = ? WHERE id = ?`,
-      [first_name || null, last_name || null, phone || null, birth_date || null, country || null, investor_profile || null, experience || null, req.user.id],
-    );
-    const user = await get('SELECT id, email, username, first_name, last_name, phone, birth_date, country, investor_profile, experience FROM users WHERE id = ?', [req.user.id]);
+    const allowedFields = [
+      'first_name',
+      'last_name',
+      'phone',
+      'birth_date',
+      'country',
+      'investor_profile',
+      'experience',
+    ];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+
+    const user = await update('users', req.user.id, updates);
+    if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (err) {
-    console.error('Personal data update error:', err.message, err.stack);
+    logger.error(`Update personal data error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update personal data', details: err.message });
   }
 });
@@ -276,9 +300,10 @@ router.put('/avatar', requireAuth, async (req, res) => {
   try {
     const { avatar } = req.body;
     if (!avatar) return res.status(400).json({ error: 'Avatar required' });
-    await run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, req.user.id]);
+    await update('users', req.user.id, { avatar });
     res.json({ success: true, avatar });
   } catch (err) {
+    logger.error(`Update avatar error: ${err.message}`);
     res.status(500).json({ error: 'Failed to update avatar' });
   }
 });
@@ -295,15 +320,20 @@ router.put('/password', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const user = await get('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
-    if (!user || !verifyPassword(current_password, user.password_hash)) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+    // This requires the user's current session - Supabase handles this via updatePassword
+    // The access token is in the Authorization header
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const newHash = hashPassword(new_password);
-    await run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.user.id]);
+    await updatePassword(new_password);
     res.json({ success: true });
   } catch (err) {
+    logger.error(`Change password error: ${err.message}`);
+    if (err.message.includes('weak_password') || err.message.includes('Password should be')) {
+      return res.status(400).json({ error: 'Password too weak' });
+    }
     res.status(500).json({ error: 'Failed to change password' });
   }
 });

@@ -1,8 +1,7 @@
 const { Router } = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/admin');
-const { get, all, run } = require('../services/database');
-const { hashPassword } = require('../services/auth');
+const { getSupabaseAdmin } = require('../services/supabase');
 
 const router = Router();
 
@@ -14,31 +13,37 @@ router.use(requireAdmin);
 
 router.get('/stats', async (req, res) => {
   try {
-    const totalUsers = (await get('SELECT COUNT(*) as count FROM users')).count;
-    const totalSubscriptions = (await get("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'")).count;
-    const totalGoals = (await get('SELECT COUNT(*) as count FROM goals')).count;
-    const totalIdeas = (await get('SELECT COUNT(*) as count FROM investment_ideas')).count;
-    const totalAlerts = (await get('SELECT COUNT(*) as count FROM price_alerts WHERE active = 1')).count;
-    const totalWatchlist = (await get('SELECT COUNT(*) as count FROM watchlist')).count;
-    const totalPortfolio = (await get('SELECT COUNT(*) as count FROM portfolio')).count;
+    const admin = getSupabaseAdmin();
+    const [
+      { count: totalUsers },
+      { count: totalSubscriptions },
+      { count: totalGoals },
+      { count: totalIdeas },
+      { count: totalAlerts },
+      { count: totalWatchlist },
+      { count: totalPortfolio },
+      { data: subs },
+      { data: recentUsers },
+    ] = await Promise.all([
+      admin.from('users').select('*', { count: 'exact', head: true }),
+      admin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      admin.from('goals').select('*', { count: 'exact', head: true }),
+      admin.from('investment_ideas').select('*', { count: 'exact', head: true }),
+      admin.from('price_alerts').select('*', { count: 'exact', head: true }).eq('active', 1),
+      admin.from('watchlist').select('*', { count: 'exact', head: true }),
+      admin.from('portfolio').select('*', { count: 'exact', head: true }),
+      admin.from('subscriptions').select('plan').eq('status', 'active'),
+      admin.from('users').select('id, email, username, role, created_at').order('created_at', { ascending: false }).limit(10),
+    ]);
 
-    const usersByPlan = await all(`
-      SELECT s.plan, COUNT(*) as count
-      FROM subscriptions s
-      GROUP BY s.plan
-    `);
+    const byPlan = {};
+    for (const s of subs || []) byPlan[s.plan] = (byPlan[s.plan] || 0) + 1;
+    const usersByPlan = Object.entries(byPlan).map(([plan, count]) => ({ plan, count }));
 
-    const recentUsers = await all(`
-      SELECT id, email, username, role, created_at
-      FROM users ORDER BY created_at DESC LIMIT 10
-    `);
-
-    const revenue = await all(`
-      SELECT s.plan, COUNT(*) as count
-      FROM subscriptions s
-      WHERE s.status = 'active' AND s.plan != 'free'
-      GROUP BY s.plan
-    `);
+    const paid = (subs || []).filter((s) => s.plan !== 'free');
+    const paidByPlan = {};
+    for (const s of paid) paidByPlan[s.plan] = (paidByPlan[s.plan] || 0) + 1;
+    const revenue = Object.entries(paidByPlan).map(([plan, count]) => ({ plan, count }));
 
     const estimatedMRR = revenue.reduce((sum, r) => {
       const prices = { basic: 4.99, pro: 14.99, premium: 49.99 };
@@ -46,15 +51,15 @@ router.get('/stats', async (req, res) => {
     }, 0);
 
     res.json({
-      totalUsers,
-      totalSubscriptions,
-      totalGoals,
-      totalIdeas,
-      totalAlerts,
-      totalWatchlist,
-      totalPortfolio,
+      totalUsers: totalUsers || 0,
+      totalSubscriptions: totalSubscriptions || 0,
+      totalGoals: totalGoals || 0,
+      totalIdeas: totalIdeas || 0,
+      totalAlerts: totalAlerts || 0,
+      totalWatchlist: totalWatchlist || 0,
+      totalPortfolio: totalPortfolio || 0,
       usersByPlan,
-      recentUsers,
+      recentUsers: recentUsers || [],
       estimatedMRR: Math.round(estimatedMRR * 100) / 100,
       revenue,
     });
@@ -67,27 +72,33 @@ router.get('/stats', async (req, res) => {
 
 router.get('/users', async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { page = 1, limit = 20, search = '' } = req.query;
-    const offset = (page - 1) * limit;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    const where = search
-      ? 'WHERE email LIKE ? OR username LIKE ?'
-      : '';
-    const params = search ? [`%${search}%`, `%${search}%`] : [];
+    let query = admin.from('users').select('id, email, username, role, first_name, last_name, avatar, created_at', { count: 'exact' });
+    if (search) query = query.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
+    const { data: users, count: total, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limitNum - 1);
+    if (error) throw error;
 
-    const users = await all(`
-      SELECT u.id, u.email, u.username, u.role, u.first_name, u.last_name, u.avatar, u.created_at,
-             s.plan, s.status as sub_status
-      FROM users u
-      LEFT JOIN subscriptions s ON u.id = s.user_id
-      ${where}
-      ORDER BY u.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [...params, parseInt(limit), offset]);
+    const userIds = (users || []).map((u) => u.id);
+    let subsMap = {};
+    if (userIds.length) {
+      const { data: subs } = await admin.from('subscriptions').select('user_id, plan, status').in('user_id', userIds);
+      for (const s of subs || []) subsMap[s.user_id] = s;
+    }
 
-    const total = (await get(`SELECT COUNT(*) as count FROM users ${where}`, params)).count;
+    const enriched = (users || []).map((u) => ({
+      ...u,
+      plan: subsMap[u.id]?.plan || 'free',
+      sub_status: subsMap[u.id]?.status || 'active',
+    }));
 
-    res.json({ users, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ users: enriched, total: total || 0, page: pageNum, limit: limitNum });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get users', details: err.message });
   }
@@ -95,11 +106,13 @@ router.get('/users', async (req, res) => {
 
 router.put('/users/:id/role', async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { role } = req.body;
     if (!['user', 'admin', 'moderator'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
-    await run('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+    const { error } = await admin.from('users').update({ role }).eq('id', req.params.id);
+    if (error) throw error;
     res.json({ success: true, role });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update role', details: err.message });
@@ -108,11 +121,18 @@ router.put('/users/:id/role', async (req, res) => {
 
 router.put('/users/:id/plan', async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { plan } = req.body;
     if (!['free', 'basic', 'pro', 'premium'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan' });
     }
-    await run("UPDATE subscriptions SET plan = ?, status = 'active', updated_at = datetime('now') WHERE user_id = ?", [plan, req.params.id]);
+    const { error } = await admin.from('subscriptions').upsert({
+      user_id: req.params.id,
+      plan,
+      status: 'active',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+    if (error) throw error;
     res.json({ success: true, plan });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update plan', details: err.message });
@@ -121,11 +141,14 @@ router.put('/users/:id/plan', async (req, res) => {
 
 router.delete('/users/:id', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
-    if (userId === req.user.id) {
+    const admin = getSupabaseAdmin();
+    if (req.params.id === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
-    await run('DELETE FROM users WHERE id = ?', [userId]);
+    // Delete Auth user (cascades to profile via... actually profile must be deleted; RLS cascade handles related tables)
+    const { error: authErr } = await admin.auth.admin.deleteUser(req.params.id);
+    if (authErr) throw authErr;
+    await admin.from('users').delete().eq('id', req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete user', details: err.message });
@@ -136,14 +159,16 @@ router.delete('/users/:id', async (req, res) => {
 
 router.get('/subscriptions', async (req, res) => {
   try {
-    const subs = await all(`
-      SELECT s.*, u.email, u.username
-      FROM subscriptions s
-      JOIN users u ON s.user_id = u.id
-      ORDER BY s.updated_at DESC
-      LIMIT 50
-    `);
-    res.json(subs);
+    const admin = getSupabaseAdmin();
+    const { data: subs, error } = await admin.from('subscriptions').select('*').order('updated_at', { ascending: false }).limit(50);
+    if (error) throw error;
+    const userIds = (subs || []).map((s) => s.user_id);
+    let usersMap = {};
+    if (userIds.length) {
+      const { data: users } = await admin.from('users').select('id, email, username').in('id', userIds);
+      for (const u of users || []) usersMap[u.id] = u;
+    }
+    res.json((subs || []).map((s) => ({ ...s, email: usersMap[s.user_id]?.email, username: usersMap[s.user_id]?.username })));
   } catch (err) {
     res.status(500).json({ error: 'Failed to get subscriptions', details: err.message });
   }
@@ -153,14 +178,15 @@ router.get('/subscriptions', async (req, res) => {
 
 router.get('/incidents', async (req, res) => {
   try {
-    const incidents = await all(`
-      SELECT id, user_id, type, subject, description, status, priority, created_at, updated_at
-      FROM incidents
-      ORDER BY
-        CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END,
-        created_at DESC
-    `);
-    res.json(incidents);
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from('incidents')
+      .select('id, user_id, type, subject, description, status, priority, created_at, updated_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const order = { high: 1, medium: 2, low: 3 };
+    (data || []).sort((a, b) => (order[a.priority] || 9) - (order[b.priority] || 9));
+    res.json(data || []);
   } catch (err) {
     res.json([]);
   }
@@ -168,13 +194,15 @@ router.get('/incidents', async (req, res) => {
 
 router.post('/incidents', async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { user_id, type, subject, description, priority } = req.body;
-    const result = await run(
-      'INSERT INTO incidents (user_id, type, subject, description, priority, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [user_id, type || 'support', subject, description, priority || 'medium', 'open'],
-    );
-    const incident = await get('SELECT * FROM incidents WHERE id = ?', [result.lastID]);
-    res.status(201).json(incident);
+    const { data, error } = await admin
+      .from('incidents')
+      .insert({ user_id, type: type || 'support', subject, description, priority: priority || 'medium', status: 'open' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create incident', details: err.message });
   }
@@ -182,13 +210,15 @@ router.post('/incidents', async (req, res) => {
 
 router.put('/incidents/:id', async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { status, priority, admin_notes } = req.body;
-    await run(
-      'UPDATE incidents SET status = COALESCE(?, status), priority = COALESCE(?, priority), admin_notes = COALESCE(?, admin_notes), updated_at = datetime(\'now\') WHERE id = ?',
-      [status, priority, admin_notes, req.params.id],
-    );
-    const incident = await get('SELECT * FROM incidents WHERE id = ?', [req.params.id]);
-    res.json(incident);
+    const updates = { updated_at: new Date().toISOString() };
+    if (status !== undefined) updates.status = status;
+    if (priority !== undefined) updates.priority = priority;
+    if (admin_notes !== undefined) updates.admin_notes = admin_notes;
+    const { data, error } = await admin.from('incidents').update(updates).eq('id', req.params.id).select('*').single();
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update incident', details: err.message });
   }
@@ -198,13 +228,14 @@ router.put('/incidents/:id', async (req, res) => {
 
 router.get('/emails', async (req, res) => {
   try {
-    const emails = await all(`
-      SELECT id, subject, type, status, sent_count, created_at
-      FROM email_campaigns
-      ORDER BY created_at DESC
-      LIMIT 50
-    `);
-    res.json(emails);
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from('email_campaigns')
+      .select('id, subject, type, status, sent_count, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json(data || []);
   } catch (err) {
     res.json([]);
   }
@@ -212,13 +243,15 @@ router.get('/emails', async (req, res) => {
 
 router.post('/emails', async (req, res) => {
   try {
+    const admin = getSupabaseAdmin();
     const { subject, content, type, target_plan } = req.body;
-    const result = await run(
-      'INSERT INTO email_campaigns (subject, content, type, target_plan, status) VALUES (?, ?, ?, ?, ?)',
-      [subject, content, type || 'newsletter', target_plan || 'all', 'draft'],
-    );
-    const email = await get('SELECT * FROM email_campaigns WHERE id = ?', [result.lastID]);
-    res.status(201).json(email);
+    const { data, error } = await admin
+      .from('email_campaigns')
+      .insert({ subject, content, type: type || 'newsletter', target_plan: target_plan || 'all', status: 'draft' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create email campaign', details: err.message });
   }
@@ -228,7 +261,8 @@ router.post('/emails', async (req, res) => {
 
 router.get('/health', async (req, res) => {
   try {
-    const dbSize = (await get("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")).size;
+    const admin = getSupabaseAdmin();
+    const { count: tableRows } = await admin.from('users').select('*', { count: 'exact', head: true });
     const uptime = process.uptime();
     const memory = process.memoryUsage();
 
@@ -239,7 +273,8 @@ router.get('/health', async (req, res) => {
         heapUsed: Math.round(memory.heapUsed / 1024 / 1024) + 'MB',
         heapTotal: Math.round(memory.heapTotal / 1024 / 1024) + 'MB',
       },
-      dbSize: Math.round(dbSize / 1024) + 'KB',
+      dbUsers: tableRows || 0,
+      dbEngine: 'Supabase PostgreSQL',
       nodeVersion: process.version,
       env: process.env.NODE_ENV || 'development',
     });

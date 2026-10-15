@@ -11,7 +11,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 router.post('/:id/read', requireAuth, async (req, res) => {
-  await markRead(req.user.id, parseInt(req.params.id));
+  await markRead(req.user.id, req.params.id);
   res.json({ ok: true });
 });
 

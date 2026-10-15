@@ -1,11 +1,19 @@
 const yahooFinance = require('./yahooFinanceClient');
-const { all, run } = require('./database');
+const { getSupabaseAdmin } = require('./supabase');
 const logger = require('./logger');
 
 async function checkPriceAlerts() {
   try {
-    const activeAlerts = await all("SELECT * FROM price_alerts WHERE active = 1");
-    if (activeAlerts.length === 0) return;
+    const admin = getSupabaseAdmin();
+    if (!admin) return [];
+
+    const { data: activeAlerts, error } = await admin
+      .from('price_alerts')
+      .select('*')
+      .eq('active', 1);
+
+    if (error) throw error;
+    if (!activeAlerts || activeAlerts.length === 0) return [];
 
     const tickers = [...new Set(activeAlerts.map(a => a.ticker))];
     const quotes = {};
@@ -25,14 +33,14 @@ async function checkPriceAlerts() {
       const currentPrice = quotes[alert.ticker];
       if (currentPrice == null) continue;
 
-      let triggered = false;
+      let isTriggered = false;
       if (alert.direction === 'above' && currentPrice >= alert.target_price) {
-        triggered = true;
+        isTriggered = true;
       } else if (alert.direction === 'below' && currentPrice <= alert.target_price) {
-        triggered = true;
+        isTriggered = true;
       }
 
-      if (triggered) {
+      if (isTriggered) {
         triggered.push({
           alertId: alert.id,
           userId: alert.user_id,
@@ -42,7 +50,7 @@ async function checkPriceAlerts() {
           direction: alert.direction,
         });
 
-        await run('UPDATE price_alerts SET active = 0 WHERE id = ?', [alert.id]);
+        await admin.from('price_alerts').update({ active: 0 }).eq('id', alert.id);
         logger.info(`Alert triggered: ${alert.ticker} ${alert.direction} ${alert.target_price} (now ${currentPrice}) for user ${alert.user_id}`);
       }
     }
@@ -55,7 +63,23 @@ async function checkPriceAlerts() {
 }
 
 async function getAlertsForUser(userId) {
-  return all("SELECT * FROM price_alerts WHERE user_id = ? AND active = 1 ORDER BY created_at DESC", [userId]);
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return [];
+
+    const { data, error } = await admin
+      .from('price_alerts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('active', 1)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    logger.error(`Get alerts for user error: ${err.message}`);
+    return [];
+  }
 }
 
 module.exports = { checkPriceAlerts, getAlertsForUser };

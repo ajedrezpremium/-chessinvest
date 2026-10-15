@@ -170,7 +170,7 @@ async function getAllIndices() {
     INDICES.map(async (idx) => {
       try {
         const persistKey = `index:${idx.id}`;
-        const persistent = loadMarketData(persistKey, PERSISTENT_CACHE_MAX_AGE);
+        const persistent = await loadMarketData(persistKey, PERSISTENT_CACHE_MAX_AGE);
         if (persistent && persistent.fresh) {
           return formatCachedData(persistent.data, idx);
         }
@@ -182,7 +182,7 @@ async function getAllIndices() {
 
         if (quote) {
           const formatted = formatIndicesData(quote, idx, history);
-          persistMarketData(persistKey, { ...formatted, source: 'live' });
+          await persistMarketData(persistKey, { ...formatted, source: 'live' });
           return formatted;
         }
 
@@ -195,7 +195,7 @@ async function getAllIndices() {
       } catch (err) {
         logger.error(`Failed to process ${idx.symbol}: ${err.message}`);
         const persistKey = `index:${idx.id}`;
-        const persistent = loadMarketData(persistKey, 9999);
+        const persistent = await loadMarketData(persistKey, 9999);
         if (persistent) {
           return formatCachedData(persistent, idx);
         }

@@ -21,6 +21,12 @@ const config = {
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
   },
+  supabase: {
+    url: process.env.SUPABASE_PROJECT_URL || '',
+    anonKey: process.env.SUPABASE_ANON_PUBLIC || '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE || '',
+    databaseUrl: process.env.DATABASE_URL || '',
+  },
   appUrl: process.env.APP_URL || 'http://localhost:3000',
   nodeEnv: process.env.NODE_ENV || 'development',
   isDev: (process.env.NODE_ENV || 'development') === 'development',

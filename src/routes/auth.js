@@ -1,8 +1,19 @@
 const { Router } = require('express');
-const { run, get } = require('../services/database');
-const { hashPassword, verifyPassword, signToken, createTokens, refreshAccessToken, createPasswordReset, resetPassword } = require('../services/auth');
-const { sendEmail } = require('../services/emailService');
 const { requireAuth } = require('../middleware/auth');
+const {
+  signUp,
+  signIn,
+  signOut,
+  resetPasswordForEmail,
+  updatePassword,
+  getUser,
+  refreshSession,
+  getUserProfile,
+  getUserSubscription,
+  getUserSettings,
+  linkSupabaseUserToProfile,
+} = require('../services/supabaseAuth');
+const { sendEmail } = require('../services/emailService');
 const logger = require('../services/logger');
 
 const router = Router();
@@ -17,20 +28,40 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const existing = get('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
-    if (existing) {
-      return res.status(409).json({ error: 'Email or username already exists' });
+    const { user, session } = await signUp(email, password, { username });
+    if (!user) {
+      return res.status(400).json({ error: 'Registration failed' });
     }
 
-    const hash = hashPassword(password);
-    const result = run('INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)', [email, username, hash]);
-    run('INSERT INTO subscriptions (user_id, plan, status) VALUES (?, ?, ?)', [result.lastID, 'free', 'active']);
-    run('INSERT INTO user_settings (user_id) VALUES (?)', [result.lastID]);
-    const user = { id: result.lastID, email, username };
-    const { accessToken, refreshToken } = await createTokens(user);
+    // Link Supabase Auth user to our profile table
+    await linkSupabaseUserToProfile(user.id, email, username);
 
-    res.status(201).json({ token: accessToken, refreshToken, user: { id: user.id, email: user.email, username: user.username, plan: 'free' } });
+    const profile = await getUserProfile(user.id);
+    const subscription = await getUserSubscription(user.id);
+    const settings = await getUserSettings(user.id);
+
+    res.status(201).json({
+      token: session.access_token,
+      refreshToken: session.refresh_token,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        role: profile.role,
+        avatar: profile.avatar,
+        plan: subscription.plan,
+        subscriptionStatus: subscription.status,
+        subscriptionEnd: subscription.current_period_end,
+        theme: settings.theme,
+        language: settings.language,
+        timezone: settings.timezone,
+      },
+    });
   } catch (err) {
+    logger.error(`Registration error: ${err.message}`);
+    if (err.message.includes('already registered') || err.message.includes('duplicate')) {
+      return res.status(409).json({ error: 'Email or username already exists' });
+    }
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -42,26 +73,48 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email/usuario y contraseña requeridos' });
     }
 
-    const user = get('SELECT * FROM users WHERE email = ? OR username = ?', [email, email]);
-    if (!user || !verifyPassword(password, user.password_hash)) {
+    const { user, session } = await signIn(email, password);
+    if (!user || !session) {
       return res.status(401).json({ error: 'Email/usuario o contraseña incorrectos' });
     }
 
-    const sub = get('SELECT plan, status FROM subscriptions WHERE user_id = ?', [user.id]);
-    const { accessToken, refreshToken } = await createTokens(user);
+    const profile = await getUserProfile(user.id);
+    const subscription = await getUserSubscription(user.id);
+    const settings = await getUserSettings(user.id);
+
     res.json({
-      token: accessToken,
-      refreshToken,
+      token: session.access_token,
+      refreshToken: session.refresh_token,
       user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        plan: sub?.plan || 'free',
-        subscriptionStatus: sub?.status || 'active',
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        role: profile.role,
+        avatar: profile.avatar,
+        plan: subscription.plan,
+        subscriptionStatus: subscription.status,
+        subscriptionEnd: subscription.current_period_end,
+        theme: settings.theme,
+        language: settings.language,
+        timezone: settings.timezone,
       },
     });
   } catch (err) {
+    logger.error(`Login error: ${err.message}`);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+router.post('/logout', async (req, res) => {
+  try {
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      await signOut(header.slice(7));
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(`Logout error: ${err.message}`);
+    res.status(500).json({ error: 'Logout failed' });
   }
 });
 
@@ -69,65 +122,98 @@ router.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
 
-  const result = await refreshAccessToken(refreshToken);
-  if (!result) return res.status(401).json({ error: 'Invalid or expired refresh token' });
+  try {
+    const session = await refreshSession(refreshToken);
+    if (!session) return res.status(401).json({ error: 'Invalid or expired refresh token' });
 
-  res.json({ token: result.accessToken, user: result.user });
+    const profile = await getUserProfile(session.user.id);
+    const subscription = await getUserSubscription(session.user.id);
+    const settings = await getUserSettings(session.user.id);
+
+    res.json({
+      token: session.access_token,
+      refreshToken: session.refresh_token,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        role: profile.role,
+        avatar: profile.avatar,
+        plan: subscription.plan,
+        subscriptionStatus: subscription.status,
+        subscriptionEnd: subscription.current_period_end,
+        theme: settings.theme,
+        language: settings.language,
+        timezone: settings.timezone,
+      },
+    });
+  } catch (err) {
+    logger.error(`Token refresh error: ${err.message}`);
+    res.status(401).json({ error: 'Invalid or expired refresh token' });
+  }
 });
 
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
-  const token = await createPasswordReset(email);
-  if (!token) return res.json({ ok: true });
-
-  const user = get('SELECT username FROM users WHERE email = ?', [email]);
-  const resetLink = `${process.env.APP_URL || 'https://chessinvest.onrender.com'}/reset-password?token=${token}`;
-
-  const sent = await sendEmail(email, 'info', {
-    title: 'Recuperación de Contraseña — CHESS INVEST',
-    body: `Hola ${user?.username || 'inversor'},\n\nHas solicitado restablecer tu contraseña. Usa este enlace (válido 1 hora):\n\n${resetLink}\n\nSi no solicitaste esto, ignora este mensaje.\n\nCHESS INVEST Team`,
-  });
-
-  logger.info(`Password reset ${sent ? 'email sent' : 'email failed'} for ${email}`);
-
-  const { isConfigured } = require('../services/emailService');
-  res.json({
-    ok: true,
-    resetLink: sent ? undefined : resetLink,
-    emailSent: sent,
-    notice: sent ? undefined : 'Email no configurado. Usa este enlace directo (válido 1 hora):',
-  });
+  try {
+    await resetPasswordForEmail(email);
+    logger.info(`Password reset email sent for ${email}`);
+    res.json({ ok: true, message: 'Si el email existe, recibirás un enlace para restablecer tu contraseña' });
+  } catch (err) {
+    logger.error(`Forgot password error: ${err.message}`);
+    res.json({ ok: true }); // Don't reveal if email exists
+  }
 });
 
-router.post('/reset-password', (req, res) => {
-  const { token, password } = req.body;
-  if (!token || !password) return res.status(400).json({ error: 'Token y contraseña requeridos' });
+router.post('/reset-password', async (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'Contraseña requerida' });
   if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
 
-  const ok = resetPassword(token, password);
-  if (!ok) return res.status(400).json({ error: 'Token inválido o expirado' });
+  // This endpoint requires the user to be authenticated via the reset link session
+  // The access token should be in the Authorization header
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Sesión de recuperación inválida o expirada' });
+  }
 
-  res.json({ ok: true, message: 'Contraseña restablecida correctamente' });
+  try {
+    await updatePassword(password);
+    res.json({ ok: true, message: 'Contraseña restablecida correctamente' });
+  } catch (err) {
+    logger.error(`Reset password error: ${err.message}`);
+    res.status(400).json({ error: 'Sesión de recuperación inválida o expirada' });
+  }
 });
 
-router.get('/me', requireAuth, (req, res) => {
-  const user = get('SELECT id, email, username, created_at FROM users WHERE id = ?', [req.user.id]);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+router.get('/me', requireAuth, async (req, res) => {
+  try {
+    const profile = await getUserProfile(req.user.id);
+    if (!profile) return res.status(404).json({ error: 'User not found' });
 
-  const sub = get('SELECT plan, status, current_period_end FROM subscriptions WHERE user_id = ?', [req.user.id]);
-  const settings = get('SELECT theme, language, timezone FROM user_settings WHERE user_id = ?', [req.user.id]);
+    const subscription = await getUserSubscription(req.user.id);
+    const settings = await getUserSettings(req.user.id);
 
-  res.json({
-    ...user,
-    plan: sub?.plan || 'free',
-    subscriptionStatus: sub?.status || 'active',
-    subscriptionEnd: sub?.current_period_end,
-    theme: settings?.theme || 'dark',
-    language: settings?.language || 'es',
-    timezone: settings?.timezone || 'Europe/Madrid',
-  });
+    res.json({
+      id: profile.id,
+      email: profile.email,
+      username: profile.username,
+      role: profile.role,
+      avatar: profile.avatar,
+      created_at: profile.created_at,
+      plan: subscription.plan,
+      subscriptionStatus: subscription.status,
+      subscriptionEnd: subscription.current_period_end,
+      theme: settings.theme,
+      language: settings.language,
+      timezone: settings.timezone,
+    });
+  } catch (err) {
+    logger.error(`Get me error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to get user profile' });
+  }
 });
 
 module.exports = router;
