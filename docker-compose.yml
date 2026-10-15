@@ -9,13 +9,27 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - HOST=0.0.0.0
+      - APP_URL=${APP_URL:-http://localhost:3000}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-openrouter/free}
       - OPENROUTER_APP_NAME=CHESSINVEST
       - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://chessinvest.com}
+      - OPENROUTER_REASONING_EFFORT=${OPENROUTER_REASONING_EFFORT:-none}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SUPABASE_PROJECT_URL=${SUPABASE_PROJECT_URL}
+      - SUPABASE_ANON_PUBLIC=${SUPABASE_ANON_PUBLIC}
+      - SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - ALPHA_VANTAGE_KEY=${ALPHA_VANTAGE_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
       - JWT_SECRET=${JWT_SECRET}
-    volumes:
-      - chessinvest_data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -23,6 +37,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-
-volumes:
-  chessinvest_data:

@@ -1,0 +1,61 @@
+# CHESSINVEST V2.0 — Render Blueprint
+# Uso: Dashboard > New > Blueprint > conectar repo ajedrezpremium/-chessinvest
+# (o ignorar este archivo si el servicio ya existe: basta con añadir las env vars
+#  SUPABASE_* en Dashboard > chessinvest > Environment y redeploy)
+services:
+  - type: web
+    name: chessinvest
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: APP_URL
+        value: https://chessinvest.onrender.com
+      - key: OPENROUTER_MODEL
+        value: openrouter/free
+      - key: OPENROUTER_APP_NAME
+        value: CHESSINVEST
+      - key: OPENROUTER_REFERER
+        value: https://chessinvest.onrender.com
+      - key: OPENROUTER_REASONING_EFFORT
+        value: none
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      # Secretos: se rellenan en Dashboard (sync: false no los pisa en re-sync)
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SUPABASE_PROJECT_URL
+        sync: false
+      - key: SUPABASE_ANON_PUBLIC
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: ALPHA_VANTAGE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: JWT_SECRET
+        sync: false

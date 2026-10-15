@@ -1,7 +1,13 @@
 node_modules
 .git
 .gitignore
+.env
+.env.local
 *.log
 data/
 tests/
 server.old.js
+supabase-migration.sql
+create-auth-users.js
+test-v2.js
+test-recovery.js
