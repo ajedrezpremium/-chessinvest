@@ -2,12 +2,27 @@ const { createRemoteJWKSet, jwtVerify } = require('jose');
 const config = require('../config');
 const logger = require('../services/logger');
 
-const JWKS_URI = `${config.supabase.url}/auth/v1/.well-known/jwks.json`;
-const JWKS = createRemoteJWKSet(new URL(JWKS_URI));
+// JWKS perezoso: si SUPABASE_PROJECT_URL no está configurada (deploy sin env vars),
+// el servidor arranca igual y las rutas con auth responden 401 en vez de crashear.
+let JWKS = null;
+
+function getJWKS() {
+  if (JWKS) return JWKS;
+  if (!config.supabase.url) return null;
+  try {
+    JWKS = createRemoteJWKSet(new URL(`${config.supabase.url}/auth/v1/.well-known/jwks.json`));
+    return JWKS;
+  } catch (err) {
+    logger.error(`Invalid SUPABASE_PROJECT_URL: ${err.message}`);
+    return null;
+  }
+}
 
 async function verifySupabaseToken(token) {
   try {
-    const { payload } = await jwtVerify(token, JWKS, {
+    const jwks = getJWKS();
+    if (!jwks) return null;
+    const { payload } = await jwtVerify(token, jwks, {
       issuer: `${config.supabase.url}/auth/v1`,
       audience: 'authenticated',
     });
@@ -16,6 +31,15 @@ async function verifySupabaseToken(token) {
     logger.debug(`JWT verification failed: ${err.message}`);
     return null;
   }
+}
+
+function toUser(payload) {
+  return {
+    id: payload.sub,
+    email: payload.email,
+    role: payload.user_metadata?.role || 'user',
+    username: payload.user_metadata?.username,
+  };
 }
 
 function requireAuth(req, res, next) {
@@ -30,12 +54,7 @@ function requireAuth(req, res, next) {
       if (!payload) {
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
-      req.user = {
-        id: payload.sub,
-        email: payload.email,
-        role: payload.user_metadata?.role || 'user',
-        username: payload.user_metadata?.username,
-      };
+      req.user = toUser(payload);
       next();
     })
     .catch((err) => {
@@ -50,14 +69,7 @@ function optionalAuth(req, _res, next) {
     const token = header.slice(7);
     verifySupabaseToken(token)
       .then((payload) => {
-        if (payload) {
-          req.user = {
-            id: payload.sub,
-            email: payload.email,
-            role: payload.user_metadata?.role || 'user',
-            username: payload.user_metadata?.username,
-          };
-        }
+        if (payload) req.user = toUser(payload);
         next();
       })
       .catch(() => next());
