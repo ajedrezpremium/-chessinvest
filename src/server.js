@@ -107,53 +107,181 @@ app.get('/reset-password', (_req, res) => {
   res.send(`
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Recuperar Contraseña — CHESS INVEST</title>
 <style>body{margin:0;font-family:'DM Sans',Arial,sans-serif;background:#0a0e1a;color:#e8f4f8;display:flex;align-items:center;justify-content:center;min-height:100vh}
-.card{background:#111827;border:1px solid rgba(0,212,255,0.15);border-radius:16px;padding:32px;width:360px;max-width:90vw}
+.card{background:#111827;border:1px solid rgba(0,212,255,0.15);border-radius:16px;padding:32px;width:380px;max-width:90vw}
 h2{color:#00d4ff;font-family:'Space Mono',monospace;font-size:16px;margin:0 0 16px;text-align:center}
-p{font-size:13px;color:#7a9bb5;margin-bottom:16px;text-align:center}
+p{font-size:13px;color:#7a9bb5;margin-bottom:16px;text-align:center;line-height:1.6}
 input{width:100%;padding:10px 14px;background:#1a2235;border:1px solid rgba(0,212,255,0.15);border-radius:8px;color:#e8f4f8;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:12px}
 input:focus{border-color:#00d4ff}
-.btn{width:100%;padding:10px;background:#00d4ff;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn{width:100%;padding:10px;background:#00d4ff;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:block;text-align:center;text-decoration:none;box-sizing:border-box}
 .btn:hover{background:#00b8d9}
 .btn:disabled{opacity:0.4;cursor:not-allowed}
-.msg{padding:12px;border-radius:8px;font-size:12px;text-align:center;display:none}
+.msg{padding:12px;border-radius:8px;font-size:12px;text-align:center;display:none;margin-bottom:12px}
 .msg.ok{background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.3);display:block}
 .msg.err{background:rgba(255,68,68,0.15);color:#ff4444;border:1px solid rgba(255,68,68,0.3);display:block}
+.link{color:#00d4ff;font-size:13px;text-decoration:none}
 </style></head><body>
 <div class="card">
 <h2>♔ Recuperar Contraseña</h2>
 <div class="msg" id="msg"></div>
-<div id="form">
+<div id="form" style="display:none">
 <p>Ingresa tu nueva contraseña</p>
 <input type="password" id="pw" placeholder="Nueva contraseña (mín. 6 caracteres)" autocomplete="new-password">
 <button class="btn" id="btn" onclick="reset()">Restablecer</button>
 </div>
+<div id="resend" style="display:none">
+<p>El enlace es inválido o ha expirado. Escribe tu email y te enviamos uno nuevo.</p>
+<input type="email" id="remail" placeholder="tu@email.com" autocomplete="email">
+<button class="btn" id="rbtn" onclick="resend()">Enviar nuevo enlace</button>
+<p style="margin-top:12px"><a class="link" href="/">← Volver a CHESS INVEST</a></p>
+</div>
 <div id="done" style="display:none;text-align:center;padding:20px">
 <div style="font-size:40px;margin-bottom:12px">✅</div>
-<p style="color:#00e676">Contraseña restablecida</p>
-<a href="/" style="color:#00d4ff;font-size:13px">Ir a CHESS INVEST</a>
+<p style="color:#00e676">Contraseña restablecida. Ya puedes entrar con tu nueva contraseña.</p>
+<a href="/" class="btn">Ir a CHESS INVEST</a>
 </div>
 </div>
 <script>
-const params=new URLSearchParams(location.search);
-const token=params.get('token');
-if(!token){document.getElementById('form').innerHTML='<p style="color:#ff4444">Enlace inválido o expirado</p>';}
+function parseHash(){
+  const h=(location.hash||'').replace(/^#/,'');
+  const out={};
+  h.split('&').forEach(function(p){var kv=p.split('=');if(kv[0])out[kv[0]]=decodeURIComponent(kv[1]||'');});
+  return out;
+}
+var session=null;
+(function init(){
+  var q=parseHash();
+  if(q.error||q.error_description){
+    showResend('Enlace inválido: '+(q.error_description||q.error));
+    return;
+  }
+  if(q.access_token&&(q.type==='recovery'||!q.type)){
+    session={access_token:q.access_token,refresh_token:q.refresh_token||null};
+    history.replaceState(null,'',location.pathname);
+    document.getElementById('form').style.display='block';
+  }else{
+    showResend(null);
+  }
+})();
+function showMsg(t,cls){var m=document.getElementById('msg');m.textContent=t;m.className='msg '+cls;}
+function showResend(t){
+  if(t)showMsg(t,'err');
+  document.getElementById('form').style.display='none';
+  document.getElementById('resend').style.display='block';
+}
 async function reset(){
-  const pw=document.getElementById('pw').value;
-  if(pw.length<6){document.getElementById('msg').textContent='Mínimo 6 caracteres';document.getElementById('msg').className='msg err';return;}
-  const btn=document.getElementById('btn');
+  var pw=document.getElementById('pw').value;
+  if(!session){showMsg('Sesión de recuperación no válida. Pide un nuevo enlace.','err');showResend(null);return;}
+  if(!pw||pw.length<6){showMsg('Mínimo 6 caracteres','err');return;}
+  var btn=document.getElementById('btn');
   btn.disabled=true;btn.textContent='Restableciendo...';
   try{
-    const r=await fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password:pw})});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.error);
+    var r=await fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({password:pw})});
+    var d=await r.json().catch(function(){return {};});
+    if(!r.ok)throw new Error(d.error||'No se pudo restablecer');
     document.getElementById('form').style.display='none';
     document.getElementById('done').style.display='block';
+    showMsg('','');document.getElementById('msg').style.display='none';
   }catch(e){
-    document.getElementById('msg').textContent=e.message;
-    document.getElementById('msg').className='msg err';
+    showMsg(e.message,'err');
   }
   btn.disabled=false;btn.textContent='Restablecer';
 }
+async function resend(){
+  var email=document.getElementById('remail').value.trim();
+  if(!email){showMsg('Escribe tu email','err');return;}
+  var btn=document.getElementById('rbtn');
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    var r=await fetch('/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
+    await r.json().catch(function(){return {};});
+    showMsg('Si el email existe, recibirás un enlace válido 1 hora.','ok');
+  }catch(e){
+    showMsg('Error de conexión. Inténtalo de nuevo.','err');
+  }
+  btn.disabled=false;btn.textContent='Enviar nuevo enlace';
+}
+</script>
+</body></html>`);
+});
+
+app.get('/auth/callback', (_req, res) => {
+  const SUPABASE_URL = config.supabase.url || '';
+  const SUPABASE_ANON = config.supabase.anonKey || '';
+  res.send(`
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Verificando sesión — CHESS INVEST</title>
+<style>body{margin:0;font-family:'DM Sans',Arial,sans-serif;background:#0a0e1a;color:#e8f4f8;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#111827;border:1px solid rgba(0,212,255,0.15);border-radius:16px;padding:32px;width:380px;max-width:90vw;text-align:center}
+h2{color:#00d4ff;font-family:'Space Mono',monospace;font-size:15px;margin:0 0 12px}
+p{font-size:13px;color:#7a9bb5;line-height:1.6}
+.spin{width:26px;height:26px;border:2px solid rgba(0,212,255,0.2);border-top-color:#00d4ff;border-radius:50%;animation:sp .8s linear infinite;margin:12px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.err{color:#ff4444;font-size:13px}
+a.btn{display:block;margin-top:14px;padding:10px;background:#00d4ff;color:#000;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none}
+</style></head><body>
+<div class="card">
+<h2>♔ CHESS INVEST</h2>
+<div id="box"><div class="spin"></div><p>Verificando tu sesión...</p></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SUPABASE_URL=${JSON.stringify(SUPABASE_URL)};
+var SUPABASE_ANON=${JSON.stringify(SUPABASE_ANON)};
+function fail(msg){
+  document.getElementById('box').innerHTML='<p class="err">'+msg+'</p><a class="btn" href="/">Ir a CHESS INVEST</a>';
+}
+function safeNext(){
+  try{
+    var n=new URLSearchParams(location.search).get('next');
+    if(n&&n.charAt(0)==='/'&&n.charAt(1)!=='/'&&n.charAt(1)!=='\\\\')return n;
+  }catch(e){}
+  return '/';
+}
+function storeAndGo(access,refresh){
+  try{
+    localStorage.setItem('chessinvest_token',access);
+    if(refresh)localStorage.setItem('chessinvest_refresh',refresh);
+  }catch(e){}
+  location.replace(safeNext());
+}
+function parseHash(){
+  var h=(location.hash||'').replace(/^#/,'');
+  var out={};
+  h.split('&').forEach(function(p){var kv=p.split('=');if(kv[0])out[kv[0]]=decodeURIComponent(kv[1]||'');});
+  return out;
+}
+(async function(){
+  var qs=new URLSearchParams(location.search);
+  var hash=parseHash();
+  if(hash.error||qs.get('error')){
+    fail('Enlace inválido o caducado: '+(hash.error_description||qs.get('error_description')||'solicita uno nuevo.'));
+    return;
+  }
+  // Recovery -> la página de reset gestiona el token
+  if(hash.access_token&&hash.type==='recovery'){
+    location.replace('/reset-password#'+(location.hash||'').replace(/^#/,''));
+    return;
+  }
+  // Sesión directa en el hash (invite, signup, magiclink, oauth implícito)
+  if(hash.access_token){
+    storeAndGo(hash.access_token,hash.refresh_token||null);
+    return;
+  }
+  // Flujo PKCE (?code=...) — requiere supabase-js
+  var code=qs.get('code');
+  if(code){
+    if(!window.supabase||!SUPABASE_URL||!SUPABASE_ANON){fail('No se pudo completar el inicio de sesión. Entra manualmente.');return;}
+    try{
+      var client=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+      var r=await client.auth.exchangeCodeForSession(code);
+      if(r.error)throw r.error;
+      var s=r.data&&r.data.session;
+      if(!s||!s.access_token)throw new Error('sin sesión');
+      storeAndGo(s.access_token,s.refresh_token||null);
+    }catch(e){fail('No se pudo completar el inicio de sesión: '+e.message);}
+    return;
+  }
+  fail('No hay sesión que verificar. Entra manualmente.');
+})();
 </script>
 </body></html>`);
 });

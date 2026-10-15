@@ -180,7 +180,7 @@ router.post('/reset-password', async (req, res) => {
   }
 
   try {
-    await updatePassword(password);
+    await updatePassword(header.slice(7), password);
     res.json({ ok: true, message: 'Contraseña restablecida correctamente' });
   } catch (err) {
     logger.error(`Reset password error: ${err.message}`);

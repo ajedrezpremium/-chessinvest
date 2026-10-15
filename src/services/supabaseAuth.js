@@ -65,11 +65,18 @@ async function resetPasswordForEmail(email) {
   return data;
 }
 
-async function updatePassword(newPassword) {
-  const supabase = getSupabaseClient();
-  if (!supabase) throw new Error('Supabase not configured');
+async function updatePassword(accessToken, newPassword) {
+  const anon = getSupabaseClient();
+  const admin = getSupabaseAdmin();
+  if (!anon || !admin) throw new Error('Supabase not configured');
 
-  const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+  // 1. Verificar que el Bearer es una sesión válida (recovery o login) y obtener el user id.
+  const { data: userData, error: userError } = await anon.auth.getUser(accessToken);
+  const userId = userData?.user?.id;
+  if (userError || !userId) throw new Error('Invalid or expired session');
+
+  // 2. Cambiar la contraseña vía Admin API (server-side, con service_role).
+  const { data, error } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
   if (error) throw error;
   return data;
 }

@@ -327,7 +327,7 @@ router.put('/password', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    await updatePassword(new_password);
+    await updatePassword(header.slice(7), new_password);
     res.json({ success: true });
   } catch (err) {
     logger.error(`Change password error: ${err.message}`);
