@@ -90,7 +90,20 @@ const authLimiter = rateLimit({
 
 app.use(limiter);
 
+// index.html es un fragmento sin <head>: envolverlo para título + favicon + viewport.
+// (Sin esto la pestaña muestra la bola gris y falta el viewport en móvil.)
+// Va ANTES de express.static o el static serviría el fragmento crudo.
+app.get('/', (_req, res) => {
+  const frag = fs.readFileSync(path.resolve(__dirname, 'public', 'index.html'), 'utf8');
+  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>♔ CHESS INVEST — Mercados, IA y Cartera</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a"></head><body>${frag}</body></html>`);
+});
+
 app.use(express.static(path.resolve(__dirname, 'public')));
+
+// Fallback para navegadores que piden /favicon.ico automáticamente
+app.get('/favicon.ico', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'favicon.svg'));
+});
 
 app.get('/chessinvestai', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'chessinvestai.html'));

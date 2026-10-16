@@ -19,6 +19,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .tab{padding:12px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .tab:hover:not(.active){color:var(--text)}
+.tab.icon-tab{padding:10px 13px;font-size:17px;line-height:1}
+.tip-below[data-tip]:hover::after{bottom:auto;top:calc(100% + 8px)}
 .main{padding:20px}
 .section{display:none}.section.active{display:block}
 .markets-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
@@ -294,18 +296,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('markets')">Mercados</div>
-  <div class="tab" onclick="switchTab('recomendaciones')">Recomendaciones IA</div>
-  <div class="tab" onclick="switchTab('alertas')">Alertas <span id="alert-badge" style="background:var(--red);border-radius:10px;padding:1px 6px;font-size:10px;font-family:'Space Mono',monospace;margin-left:4px;display:none">!</span></div>
-  <div class="tab" onclick="switchTab('resumen')">Resumen Diario</div>
-  <div class="tab" onclick="switchTab('algoritmo')">Algoritmo</div>
-  <div class="tab" onclick="switchTab('portfolio')">Mi Cartera</div>
-  <div class="tab" onclick="switchTab('analyzer')">El Laboratorio</div>
-  <div class="tab" onclick="window.location.href='/analyzer'">📊 Técnico</div>
-  <div class="tab" onclick="switchTab('calendar')">Calendario</div>
-  <div class="tab" onclick="window.location.href='/newsletter'">📰 Top 20 IA</div>
-  <div class="tab" onclick="window.location.href='/screener'">🔍 Screener</div>
-  <div class="tab" onclick="window.location.href='/recursos'">📚 Recursos</div>
+  <div class="tab icon-tab active tip-below" data-tip="Mercados mundiales en vivo" aria-label="Mercados" onclick="switchTab('markets')">🌍</div>
+  <div class="tab icon-tab tip-below" data-tip="Recomendaciones IA (algoritmo 20 criterios)" aria-label="Recomendaciones IA" onclick="switchTab('recomendaciones')">✨</div>
+  <div class="tab icon-tab tip-below" data-tip="Alertas de eventos extraordinarios" aria-label="Alertas" onclick="switchTab('alertas')">🔔<span id="alert-badge" style="background:var(--red);border-radius:10px;padding:1px 6px;font-size:10px;font-family:'Space Mono',monospace;margin-left:4px;display:none">!</span></div>
+  <div class="tab icon-tab tip-below" data-tip="Resumen diario de mercados" aria-label="Resumen Diario" onclick="switchTab('resumen')">📝</div>
+  <div class="tab icon-tab tip-below" data-tip="Los 20 criterios del algoritmo" aria-label="Algoritmo" onclick="switchTab('algoritmo')">⚙️</div>
+  <div class="tab icon-tab tip-below" data-tip="Mi cartera, rendimiento y operaciones" aria-label="Mi Cartera" onclick="switchTab('portfolio')">💼</div>
+  <div class="tab icon-tab tip-below" data-tip="El Laboratorio: análisis y amigo inversor" aria-label="El Laboratorio" onclick="switchTab('analyzer')">🧪</div>
+  <div class="tab icon-tab tip-below" data-tip="Análisis técnico avanzado" aria-label="Técnico" onclick="window.location.href='/analyzer'">📊</div>
+  <div class="tab icon-tab tip-below" data-tip="Calendario económico y resultados" aria-label="Calendario" onclick="switchTab('calendar')">📅</div>
+  <div class="tab icon-tab tip-below" data-tip="Top 20 IA: las noticias más impactantes" aria-label="Top 20 IA" onclick="window.location.href='/newsletter'">📰</div>
+  <div class="tab icon-tab tip-below" data-tip="Screener: busca oportunidades por filtros" aria-label="Screener" onclick="window.location.href='/screener'">🔍</div>
+  <div class="tab icon-tab tip-below" data-tip="Directorio: herramientas, reguladores y organismos" aria-label="Recursos" onclick="window.location.href='/recursos'">📚</div>
 </div>
 
 <div class="main">
