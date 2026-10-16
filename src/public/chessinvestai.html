@@ -195,6 +195,7 @@ async function loadVoiceSettings(){
         document.getElementById('tts-rate').value=voiceSettings.rate;
         document.getElementById('tts-pitch').value=voiceSettings.pitch;
         document.getElementById('tts-lang').value=voiceSettings.lang;
+        try{localStorage.setItem('voiceSettings',JSON.stringify(voiceSettings));}catch(e){}
         return;
       }
     }catch(e){}
@@ -210,6 +211,25 @@ async function loadVoiceSettings(){
   document.getElementById('tts-lang').value=voiceSettings.lang;
 }
 
+async function authFetch(url,opts={}){
+  let token=localStorage.getItem('chessinvest_token');
+  let res=await fetch(url,{...opts,headers:{...(opts.headers||{}),'Content-Type':'application/json',Authorization:'Bearer '+token}});
+  if(res.status===401){
+    try{
+      const rt=localStorage.getItem('chessinvest_refresh');
+      if(!rt)return res;
+      const rr=await fetch('/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:rt})});
+      if(!rr.ok)return res;
+      const d=await rr.json();
+      localStorage.setItem('chessinvest_token',d.token);
+      if(d.refreshToken)localStorage.setItem('chessinvest_refresh',d.refreshToken);
+      token=d.token;
+      res=await fetch(url,{...opts,headers:{...(opts.headers||{}),'Content-Type':'application/json',Authorization:'Bearer '+token}});
+    }catch(e){}
+  }
+  return res;
+}
+
 function saveVoiceSettings(){
   voiceSettings={
     ttsEnabled:document.getElementById('tts-enabled').checked,
@@ -219,6 +239,16 @@ function saveVoiceSettings(){
     lang:document.getElementById('tts-lang').value,
   };
   localStorage.setItem('voiceSettings',JSON.stringify(voiceSettings));
+  // Persistir en el perfil (servidor); sin esto el servidor los pisa al recargar
+  const token=localStorage.getItem('chessinvest_token');
+  if(!token)return;
+  authFetch('/api/profile/settings',{method:'PUT',body:JSON.stringify({
+    voice_enabled:voiceSettings.ttsEnabled?1:0,
+    voice_input_enabled:voiceSettings.sttEnabled?1:0,
+    voice_rate:voiceSettings.rate,
+    voice_pitch:voiceSettings.pitch,
+    voice_lang:voiceSettings.lang,
+  })}).catch(()=>{});
 }
 
 function toggleVoiceSettings(){
