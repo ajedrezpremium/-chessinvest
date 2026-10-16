@@ -94,7 +94,7 @@ ${calendarCtx}
 TABLA COMPLETA:
 ${marketTable}
 
-Responde SOLO JSON válido (sin markdown, sin backticks) con este formato:
+Responde SOLO JSON válido (sin markdown, sin backticks, SIN preámbulos ni texto fuera del JSON) con este formato:
 {"title":"...","panorama":"2-3 párrafos ejecutivos","items":[{"title":"...","summary":"1-2 líneas","why_matters":"por qué importa al inversor","tickers":["AAPL"],"impact":85,"sector":"Tecnología","direction":"positivo"}]}
 
 Reglas: 20 items ordenados por impacto descendente; sectores variados (tecnología, energía, macro, salud, financiero...); tickers en mayúsculas (vacío [] si no aplica); español neutro, sin política, sin asteriscos. Incluye SIEMPRE el disclaimer final en panorama: "Solo informativo, no es asesoramiento financiero."`;
@@ -148,9 +148,11 @@ Reglas: 20 items ordenados por impacto descendente; sectores variados (tecnolog�
     return null;
   }
 
-  // El modelo free es pequeño: pedir 20 items de golpe falla. 2 tandas de 10.
-  async function requestBatch(focus, n) {
-    const batchPrompt = `${prompt}\n\nEN ESTA TANDA genera EXACTAMENTE ${n} items con enfoque en: ${focus}.\nRESPONDE ÚNICAMENTE CON EL JSON, SIN NINGÚN TEXTO ANTES NI DESPUÉS.`;
+  // El modelo free es pequeño: pedir 20 items de golpe falla. Tandas de 10 con
+  // reintentos + tanda comodín de relleno hasta llegar a 20.
+  async function requestBatch(focus, n, attempt = 1) {
+    const strict = attempt > 1 ? '\n\nRESPONDE ÚNICAMENTE CON EL JSON, SIN NINGÚN TEXTO ANTES NI DESPUÉS. PROHIBIDO cualquier preámbulo.' : '';
+    const batchPrompt = `${prompt}\n\nEN ESTA TANDA genera EXACTAMENTE ${n} items con enfoque en: ${focus}.${strict}`;
     const response = await callAI({
       messages: [{ role: 'user', content: batchPrompt }],
       max_tokens: 3000,
@@ -158,11 +160,27 @@ Reglas: 20 items ordenados por impacto descendente; sectores variados (tecnolog�
     });
     const text = response?.data?.content?.[0]?.text || '';
     const parsed = await tryParse(text);
-    if (!parsed) {
-      logger.warn(`Top20 tanda "${focus}" sin JSON (preview): ${text.slice(0, 200)}`);
+    if (!parsed?.items?.length && attempt < 3) {
+      logger.warn(`Top20 tanda "${focus}" intento ${attempt} sin JSON, reintentando`);
+      return requestBatch(focus, n, attempt + 1);
+    }
+    if (!parsed?.items?.length) {
+      logger.warn(`Top20 tanda "${focus}" fallida tras 3 intentos (preview): ${text.slice(0, 200)}`);
       return [];
     }
-    return parsed.items || [];
+    return parsed.items;
+  }
+
+  function dedupe(lists) {
+    const seen = new Set();
+    const merged = [];
+    for (const raw of lists.flat()) {
+      const key = String(raw.title || '').toLowerCase().slice(0, 60);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(raw);
+    }
+    return merged;
   }
 
   const [batchA, batchB] = await Promise.all([
@@ -170,17 +188,22 @@ Reglas: 20 items ordenados por impacto descendente; sectores variados (tecnolog�
     requestBatch('empresas, resultados, tecnología, energía, salud y financiero', 10),
   ]);
 
-  const seen = new Set();
-  const merged = [];
-  for (const raw of [...batchA, ...batchB]) {
-    const key = String(raw.title || '').toLowerCase().slice(0, 60);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    merged.push(raw);
+  let merged = dedupe([batchA, batchB]);
+  logger.info(`Top20 tandas base: A=${batchA.length} B=${batchB.length} únicos=${merged.length}`);
+
+  if (merged.length < 20) {
+    const missing = 20 - merged.length;
+    logger.info(`Top20 relleno: faltan ${missing}, tanda comodín`);
+    const batchC = await requestBatch(
+      `oportunidades, dividendos, bonos, cripto y emergentes NO cubiertos aún (evita repetir titulares)`,
+      Math.min(missing + 3, 12)
+    );
+    merged = dedupe([merged, batchC]);
   }
+
   const parsed = { items: merged };
-  if (!parsed.items.length) {
-    throw new Error('Top20 JSON inválido de la IA');
+  if (parsed.items.length < 12) {
+    throw new Error(`Top20 insuficiente de la IA (solo ${parsed.items.length} items)`);
   }
   // Título y panorama: derivar sin llamada extra
   parsed.title = `Top 20 IA — ${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`;
@@ -446,6 +469,7 @@ module.exports = {
   getNewsletterSubscribers,
   getNewsletterItems,
   getTodayNewsletter,
+  generateTop20,
   filterItems,
   buildEmailHtml,
 };

@@ -91,6 +91,7 @@
     <div class="nav-item" data-section="subscriptions"><span class="icon">💳</span><span class="nav-text">Suscripciones</span></div>
     <div class="nav-item" data-section="incidents"><span class="icon">🎫</span><span class="nav-text">Incidencias</span></div>
     <div class="nav-item" data-section="emails"><span class="icon">📧</span><span class="nav-text">Emails</span></div>
+    <div class="nav-item" data-section="resources"><span class="icon">📚</span><span class="nav-text">Recursos</span></div>
     <div class="nav-item" data-section="system"><span class="icon">⚙️</span><span class="nav-text">Sistema</span></div>
     <div class="nav-item" onclick="window.location.href='/'"><span class="icon">🏠</span><span class="nav-text">Volver al Site</span></div>
   </div>
@@ -169,6 +170,19 @@
       </div>
     </div>
 
+    <div id="resources" class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3>📚 Directorio de Recursos</h3>
+        <button class="btn btn-primary btn-sm" onclick="openModal('resourceModal')">+ Nuevo Recurso</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Nombre</th><th>Categoría</th><th>Gratis</th><th>★</th><th>Acciones</th></tr></thead>
+          <tbody id="resourcesTable"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="system" class="section">
       <div class="card">
         <h3>⚙️ Estado del Sistema</h3>
@@ -223,6 +237,20 @@
     </div>
   </div>
 
+  <div id="resourceModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Nuevo Recurso</h3><button class="modal-close" onclick="closeModal('resourceModal')">&times;</button></div>
+      <div class="form-group"><label>Nombre</label><input type="text" id="resName"></div>
+      <div class="form-group"><label>Categoría</label><select id="resCategory"><option value="herramienta">🛠 Herramienta</option><option value="regulador">🏛 Regulador</option><option value="organismo">🌍 Organismo</option><option value="formacion">🎓 Formación</option></select></div>
+      <div class="form-group"><label>URL</label><input type="text" id="resUrl" placeholder="https://..."></div>
+      <div class="form-group"><label>Descripción</label><textarea id="resDesc"></textarea></div>
+      <div class="form-group"><label>Acceso</label><select id="resFree"><option value="1">Gratis</option><option value="0">Pago</option></select></div>
+      <div class="form-group"><label>Idioma</label><select id="resLang"><option value="es">ES</option><option value="en">EN</option></select></div>
+      <div class="form-group"><label><input type="checkbox" id="resFeatured" style="width:auto"> Destacado ★</label></div>
+      <button class="btn btn-primary" onclick="createResource()">Crear</button>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script>
@@ -248,12 +276,13 @@
         item.classList.add('active');
         const section = item.dataset.section;
         document.getElementById(section).classList.add('active');
-        const titles = { dashboard: '📊 Dashboard', users: '👥 Usuarios', subscriptions: '💳 Suscripciones', incidents: '🎫 Incidencias', emails: '📧 Emails', system: '⚙️ Sistema' };
+        const titles = { dashboard: '📊 Dashboard', users: '👥 Usuarios', subscriptions: '💳 Suscripciones', incidents: '🎫 Incidencias', emails: '📧 Emails', resources: '📚 Recursos', system: '⚙️ Sistema' };
         document.getElementById('pageTitle').textContent = titles[section] || 'Admin';
         if (section === 'users') loadUsers(1);
         if (section === 'subscriptions') loadSubscriptions();
         if (section === 'incidents') loadIncidents();
         if (section === 'emails') loadEmails();
+        if (section === 'resources') loadResources();
         if (section === 'system') loadSystemHealth();
       });
     });
@@ -489,6 +518,65 @@
         loadEmails();
       } catch (e) {
         showToast('Error al crear campaña', true);
+      }
+    }
+
+    async function loadResources() {
+      try {
+        const rows = await apiFetch('/api/admin/resources');
+        document.getElementById('resourcesTable').innerHTML = rows.map(x => `
+          <tr>
+            <td><a href="${x.url}" target="_blank" rel="noopener">${x.name}</a>${x.featured ? ' ★' : ''}</td>
+            <td>${x.category}</td>
+            <td>${x.is_free ? 'Gratis' : 'Pago'}</td>
+            <td><button class="btn btn-sm" onclick="toggleFeatured('${x.id}', ${x.featured ? 0 : 1})" title="Destacar">${x.featured ? '★' : '☆'}</button></td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteResource('${x.id}')">Eliminar</button></td>
+          </tr>
+        `).join('') || '<tr><td colspan="5" class="empty">Sin recursos</td></tr>';
+      } catch (e) {
+        document.getElementById('resourcesTable').innerHTML = '<tr><td colspan="5" class="empty">Error al cargar</td></tr>';
+      }
+    }
+
+    async function createResource() {
+      try {
+        await apiFetch('/api/admin/resources', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: document.getElementById('resName').value,
+            category: document.getElementById('resCategory').value,
+            url: document.getElementById('resUrl').value,
+            description: document.getElementById('resDesc').value,
+            is_free: Number(document.getElementById('resFree').value),
+            lang: document.getElementById('resLang').value,
+            featured: document.getElementById('resFeatured').checked ? 1 : 0,
+          }),
+        });
+        closeModal('resourceModal');
+        showToast('Recurso creado');
+        loadResources();
+      } catch (e) {
+        showToast(e.message || 'Error al crear recurso', true);
+      }
+    }
+
+    async function toggleFeatured(id, val) {
+      try {
+        await apiFetch(`/api/admin/resources/${id}`, { method: 'PUT', body: JSON.stringify({ featured: val }) });
+        loadResources();
+      } catch (e) {
+        showToast('Error al actualizar', true);
+      }
+    }
+
+    async function deleteResource(id) {
+      if (!confirm('¿Eliminar este recurso?')) return;
+      try {
+        await apiFetch(`/api/admin/resources/${id}`, { method: 'DELETE' });
+        showToast('Recurso eliminado');
+        loadResources();
+      } catch (e) {
+        showToast('Error al eliminar', true);
       }
     }
 

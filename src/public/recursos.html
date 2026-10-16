@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📚 Directorio — CHESS INVEST</title>
+<meta name="description" content="Directorio de herramientas de inversión, reguladores (CNMV, ESMA, SEC) y organismos internacionales que velan por la seguridad del ecosistema financiero.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--accent:#00d4ff;--green:#00e676;--red:#ff4444;--amber:#ffb300;--purple:#b388ff;--text:#e8f4f8;--muted:#7a9bb5;--border:rgba(0,212,255,0.15)}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh}
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-family:'Space Mono',monospace;font-size:15px;color:var(--accent);letter-spacing:2px}
+.back-btn{color:var(--muted);text-decoration:none;font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:8px}
+.back-btn:hover{color:var(--accent);border-color:var(--accent)}
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+.section-title{font-size:13px;font-family:'Space Mono',monospace;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin:22px 0 12px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.intro{font-size:14px;line-height:1.8;color:var(--muted);margin-bottom:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.chip{padding:7px 15px;font-size:12px;border-radius:20px;background:var(--bg3);color:var(--muted);border:1px solid var(--border);cursor:pointer}
+.chip.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.search{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;margin-bottom:6px}
+.search:focus{border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;transition:all 0.2s}
+.card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.card.feat{border-color:rgba(255,179,0,0.4)}
+.card-name{font-size:15px;font-weight:600}
+.card-name a{color:var(--text);text-decoration:none}
+.card-name a:hover{color:var(--accent)}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.6;flex:1}
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tag{font-size:10px;padding:2px 8px;border-radius:4px;font-family:'Space Mono',monospace}
+.tag-free{background:rgba(0,230,118,0.15);color:var(--green)}
+.tag-paid{background:rgba(255,179,0,0.15);color:var(--amber)}
+.tag-lang{background:rgba(0,212,255,0.1);color:var(--accent)}
+.star{color:var(--amber);font-size:12px}
+.empty,.loading{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.footer{text-align:center;padding:24px;font-size:11px;color:var(--muted);line-height:1.7}
+.footer strong{color:var(--amber)}
+@media(max-width:600px){.wrap{padding:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">♔ CHESS INVEST · Directorio</div>
+  <a href="/" class="back-btn">← Dashboard</a>
+</div>
+<div class="wrap">
+  <p class="intro">Herramientas útiles para consultar mercados, organismos que supervisan el ecosistema y recursos de formación. Selección editorial de ChessInvest.</p>
+  <div class="chips" id="chips">
+    <button class="chip active" data-cat="">Todo</button>
+    <button class="chip" data-cat="herramienta">🛠 Herramientas</button>
+    <button class="chip" data-cat="regulador">🏛 Reguladores</button>
+    <button class="chip" data-cat="organismo">🌍 Organismos</button>
+    <button class="chip" data-cat="formacion">🎓 Formación</button>
+  </div>
+  <input class="search" id="q" placeholder="Buscar (ej: CNMV, screener, dividendos...)" oninput="debSearch()">
+  <div id="list"><div class="loading"><div class="spinner"></div>Cargando directorio...</div></div>
+
+  <div class="section-title">🛡 Antes de invertir, verifica</div>
+  <p class="intro">1) ¿El bróker está autorizado? Compruébalo en <strong>CNMV</strong> (España) o el regulador de tu país. 2) Desconfía de rentabilidades garantizadas: consulta las <strong>alertas de chiringuitos</strong> de CNMV/ESMA. 3) Lee los informes oficiales (10-K en EDGAR) antes que foros.</p>
+
+  <div class="footer"><strong>⚠️ Directorio informativo.</strong> Los enlaces son externos; ChessInvest no se responsabiliza de su contenido ni recibe compensación por listarlos.</div>
+</div>
+<script>
+let activeCat='';
+let deb=null;
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+document.getElementById('chips').addEventListener('click',e=>{
+  const b=e.target.closest('.chip');if(!b)return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  b.classList.add('active');
+  activeCat=b.dataset.cat;
+  load();
+});
+function debSearch(){clearTimeout(deb);deb=setTimeout(load,300);}
+async function load(){
+  const box=document.getElementById('list');
+  const q=document.getElementById('q').value.trim();
+  let url='/api/resources?';
+  if(activeCat)url+='category='+activeCat+'&';
+  if(q)url+='q='+encodeURIComponent(q);
+  try{
+    const r=await fetch(url);
+    const d=await r.json();
+    if(!d.resources.length){box.innerHTML='<div class="empty">Sin resultados.</div>';return;}
+    box.innerHTML='<div class="grid">'+d.resources.map(x=>`
+      <div class="card${x.featured?' feat':''}">
+        <div class="card-name">${x.featured?'<span class="star">★ </span>':''}<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a></div>
+        <div class="card-desc">${esc(x.description)}</div>
+        <div class="card-meta">
+          <span class="tag ${x.is_free?'tag-free':'tag-paid'}">${x.is_free?'GRATIS':'PAGO'}</span>
+          <span class="tag tag-lang">${esc((x.lang||'es').toUpperCase())}</span>
+        </div>
+      </div>`).join('')+'</div>';
+  }catch(e){box.innerHTML='<div class="empty">Error de conexión.</div>';}
+}
+load();
+</script>
+</body>
+</html>

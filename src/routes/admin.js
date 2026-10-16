@@ -257,6 +257,110 @@ router.post('/emails', async (req, res) => {
   }
 });
 
+// ── Directorio de recursos ────────────────────────────────
+
+const RESOURCE_CATS = ['herramienta', 'regulador', 'organismo', 'formacion'];
+
+router.get('/resources', async (req, res) => {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from('resources')
+      .select('*')
+      .order('featured', { ascending: false })
+      .order('name')
+      .limit(200);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get resources', details: err.message });
+  }
+});
+
+router.post('/resources', async (req, res) => {
+  try {
+    const { name, category, url, description, is_free, lang, featured } = req.body;
+    if (!name || !url || !RESOURCE_CATS.includes(category)) {
+      return res.status(400).json({ error: 'name, url y category válida requeridos' });
+    }
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({ error: 'URL no válida' });
+    }
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from('resources')
+      .insert({
+        name, category, url,
+        description: description || '',
+        is_free: is_free === false || is_free === 0 ? 0 : 1,
+        lang: lang || 'es',
+        featured: featured ? 1 : 0,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    // Auto-ingesta RAG (los agentes pueden recomendar el recurso)
+    require('../services/rag').ingestChunks([{
+      content: `${data.name} (${data.category}, ${data.is_free ? 'gratis' : 'de pago'}): ${data.description} Web: ${data.url}`,
+      source: 'directorio',
+      lang: data.lang || 'es',
+    }]).catch(() => {});
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create resource', details: err.message });
+  }
+});
+
+router.put('/resources/:id', async (req, res) => {
+  try {
+    const allowed = ['name', 'category', 'url', 'description', 'is_free', 'lang', 'featured'];
+    const updates = {};
+    for (const f of allowed) {
+      if (req.body[f] !== undefined) updates[f] = req.body[f];
+    }
+    if (updates.category && !RESOURCE_CATS.includes(updates.category)) {
+      return res.status(400).json({ error: 'Categoría no válida' });
+    }
+    if (updates.url) {
+      try {
+        new URL(updates.url);
+      } catch {
+        return res.status(400).json({ error: 'URL no válida' });
+      }
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nada que actualizar' });
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin.from('resources').update(updates).eq('id', req.params.id).select('*').single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update resource', details: err.message });
+  }
+});
+
+router.delete('/resources/:id', async (req, res) => {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data: doomed } = await admin.from('resources').select('url').eq('id', req.params.id).single();
+    const { error } = await admin.from('resources').delete().eq('id', req.params.id);
+    if (error) throw error;
+    // Limpieza RAG del chunk auto-generado
+    if (doomed?.url) {
+      await admin.from('knowledge_chunks')
+        .delete()
+        .eq('source', 'directorio')
+        .like('content', `%${doomed.url}%`)
+        .then(() => {})
+        .catch(() => {});
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete resource', details: err.message });
+  }
+});
+
 // ── System Health ─────────────────────────────────────────
 
 router.get('/health', async (req, res) => {

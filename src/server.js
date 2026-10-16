@@ -116,6 +116,10 @@ app.get('/screener', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'screener.html'));
 });
 
+app.get('/recursos', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'recursos.html'));
+});
+
 app.get('/reset-password', (_req, res) => {
   res.send(`
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Recuperar Contraseña — CHESS INVEST</title>
@@ -320,6 +324,7 @@ app.use('/api/stockbroker', dailyUsageLimiter, agentLimiter, stockbrokerRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/screener', require('./routes/screener'));
+app.use('/api/resources', require('./routes/resources'));
 app.use('/api', trackUsage);
 
 // Test endpoint

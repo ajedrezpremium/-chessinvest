@@ -53,9 +53,21 @@ async function retrieveContext(query, { matchCount = 5, source = null } = {}) {
   }
 }
 
-// Búsqueda léxica (sin vectores): para cuando no hay crédito de embeddings.
-// Extrae palabras significativas y busca coincidencias parciales.
+// Búsqueda léxica (sin vectores): full-text español con unaccent (tildes + stemming).
+// Si la función no existe (pre-migración), cae a ILIKE por palabras.
 async function keywordSearch(admin, query, matchCount = 5, source = null) {
+  try {
+    const { data, error } = await admin.rpc('search_chunks', {
+      query_text: String(query || '').slice(0, 500),
+      match_count: matchCount,
+    });
+    if (error) throw error;
+    let rows = data || [];
+    if (source) rows = rows.filter((r) => r.source === source || String(r.source || '').startsWith(source + ':'));
+    return rows;
+  } catch (err) {
+    logger.debug(`FTS fallback to ILIKE: ${err.message}`);
+  }
   const STOP = new Set(['que', 'qué', 'como', 'cómo', 'para', 'porque', 'esta', 'este', 'esto', 'estoy', 'tiene', 'tienen', 'puedes', 'puedo', 'hace', 'hacer', 'sobre', 'entre', 'cuando', 'donde', 'dónde', 'cual', 'cuál', 'misma', 'mismo', 'mucho', 'hasta', 'desde', 'donde', 'the', 'and', 'with', 'what', 'does', 'cómo', 'dime', 'explica', 'cuéntame']);
   const words = String(query || '')
     .toLowerCase()
