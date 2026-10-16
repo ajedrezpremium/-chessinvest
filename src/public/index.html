@@ -192,6 +192,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .agent-float-btn.chess:hover{box-shadow:0 6px 30px rgba(0,212,255,0.6)}
 .agent-float-btn.stock{background:var(--purple);color:#fff}
 .agent-float-btn.stock:hover{box-shadow:0 6px 30px rgba(179,136,255,0.6)}
+.agent-float-btn{width:56px;height:56px;border-radius:50%!important;padding:0!important;justify-content:center;gap:0}
+.agent-float-btn .float-icon{font-size:25px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))}
+.agent-float-btn .float-label{display:none;white-space:nowrap}
+.agent-float-btn .float-pro{display:none;position:absolute;top:-6px;right:-6px}
+.agent-float-btn:hover{width:auto;height:auto;border-radius:14px!important;padding:10px 16px!important;gap:8px}
+.agent-float-btn:hover .float-icon{font-size:17px}
+.agent-float-btn:hover .float-label{display:inline;font-size:13px;font-weight:600}
+.agent-float-btn:hover .float-pro{display:inline-flex}
+.agent-float-btn.chess{border:2px solid rgba(0,212,255,0.6)}
+.agent-float-btn.stock{border:2px solid rgba(179,136,255,0.6)}
+.agent-float .agent-float-btn{position:relative}
 .agent-avatar{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;border:2px solid}
 .agent-avatar.sm{width:28px;height:28px;font-size:14px}
 .agent-avatar.chess{background:linear-gradient(135deg,rgba(0,212,255,0.25),rgba(0,212,255,0.05));border-color:var(--accent);box-shadow:0 0 12px rgba(0,212,255,0.35)}
@@ -567,8 +578,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </footer>
 
 <div class="agent-float">
-  <a href="/stockbroker" class="agent-float-btn stock tip-left" data-tip="Stockbroker Futures — señales LARGO/CORTO con entrada, stop, targets, score y backtest. Futuros, índices y commodities."><span class="agent-avatar sm stock">⚡</span> Stockbroker Futures</a>
-  <a href="/chessinvestai" class="agent-float-btn chess tip-left" data-tip="ChessInvest AI — tu amigo inversor: análisis por ticker, memoria de conversación, contexto de tu cartera y RAG."><span class="agent-avatar sm chess">♔</span> ChessInvest AI</a>
+  <a href="/stockbroker" class="agent-float-btn stock tip-left" data-tip="Stockbroker Futures — señales LARGO/CORTO con entrada, stop, targets, score y backtest. Futuros, índices y commodities." aria-label="Stockbroker Futures"><span class="float-icon">⚡</span><span class="float-label">Stockbroker Futures</span><span class="pro-badge float-pro" data-tip="Función PRO">PRO</span></a>
+  <a href="/chessinvestai" class="agent-float-btn chess tip-left" data-tip="ChessInvest AI — tu amigo inversor: análisis por ticker, memoria de conversación, contexto de tu cartera y RAG." aria-label="ChessInvest AI"><span class="float-icon">♔</span><span class="float-label">ChessInvest AI</span></a>
 </div>
 
 </div>
