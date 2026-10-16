@@ -136,6 +136,7 @@ async function loadToday(){
         <div class="item-actions">
           <button class="mini-btn" onclick="copyItem(${it.rank})">📋 Copiar</button>
           <button class="mini-btn" onclick="shareItem(${it.rank})">📤 Compartir</button>
+          <button class="mini-btn" onclick="shareTelegram(${it.rank})">✈️ Telegram</button>
         </div>
       </div>`).join('');
     window._items=d.items;
@@ -160,6 +161,11 @@ async function shareEdition(){
   const text='♔ CHESS INVEST Top 20 IA: las 20 noticias más impactantes del día';
   if(navigator.share){try{await navigator.share({title:'CHESS INVEST Top 20',text,url:location.href});return;}catch(e){if(e.name==='AbortError')return;}}
   copyText(text+' '+location.href);
+}
+function shareTelegram(rank){
+  const it=getItem(rank);if(!it)return;
+  const text=`${it.title} (impacto ${it.impact}) — vía CHESS INVEST Top 20 IA`;
+  window.open('https://t.me/share/url?url='+encodeURIComponent(location.origin+'/newsletter')+'&text='+encodeURIComponent(text),'_blank','noopener');
 }
 async function savePrefs(){
   const token=localStorage.getItem('chessinvest_token');
@@ -203,6 +209,7 @@ async function loadEdition(id){
         <div class="item-meta">${it.tickers?'<span class="tickers">'+esc(it.tickers)+'</span>':''}${it.sector?'<span class="sector">'+esc(it.sector)+'</span>':''}</div>
         <div class="item-sum">${esc(it.summary)}</div>
         ${it.why_matters?'<div class="item-why">Por qué importa: '+esc(it.why_matters)+'</div>':''}
+        <div class="item-actions"><button class="mini-btn" onclick="shareTelegram(${it.rank})">✈️ Telegram</button></div>
       </div>`).join('')||'<div class="empty">Sin items.</div>';
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){}
