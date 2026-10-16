@@ -36,7 +36,12 @@ const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+// Stripe necesita el body RAW para verificar la firma: excluir el webhook del json parser.
+// (Si express.json() consume el body antes, constructEvent falla siempre con 400.)
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/subscription/webhook') return next();
+  express.json({ limit: '1mb' })(req, res, next);
+});
 app.use(requestLogger);
 app.use(responseLogger);
 
