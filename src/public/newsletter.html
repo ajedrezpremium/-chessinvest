@@ -151,11 +151,51 @@ function copyItem(rank){
   const it=getItem(rank);if(!it)return;
   copyText(`${it.title} (impacto ${it.impact})\n${it.summary}\n${it.why_matters||''}\n— vía CHESS INVEST Top 20 IA`);
 }
+let nlPendingShare='';
+function nlShareMenu(btn){
+  let m=document.getElementById('share-menu');
+  if(!m){
+    m=document.createElement('div');
+    m.id='share-menu';
+    m.style.cssText='display:none;position:fixed;z-index:2000;background:#0b1220;border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,0.5);min-width:190px';
+    m.innerHTML='<button data-net="x" style="display:flex;gap:10px;width:100%;text-align:left;background:none;border:none;color:#e8f4f8;padding:8px 12px;font-size:13px;cursor:pointer">𝕏&nbsp; X (Twitter)</button><button data-net="wa" style="display:flex;gap:10px;width:100%;text-align:left;background:none;border:none;color:#e8f4f8;padding:8px 12px;font-size:13px;cursor:pointer">💬 WhatsApp</button><button data-net="tg" style="display:flex;gap:10px;width:100%;text-align:left;background:none;border:none;color:#e8f4f8;padding:8px 12px;font-size:13px;cursor:pointer">✈️ Telegram</button><button data-net="in" style="display:flex;gap:10px;width:100%;text-align:left;background:none;border:none;color:#e8f4f8;padding:8px 12px;font-size:13px;cursor:pointer">💼 LinkedIn</button><button data-net="fb" style="display:flex;gap:10px;width:100%;text-align:left;background:none;border:none;color:#e8f4f8;padding:8px 12px;font-size:13px;cursor:pointer">📘 Facebook</button><button data-net="copy" style="display:flex;gap:10px;width:100%;text-align:left;background:none;border:none;color:#e8f4f8;padding:8px 12px;font-size:13px;cursor:pointer">🔗 Copiar enlace</button>';
+    document.body.appendChild(m);
+    m.addEventListener('click',async e=>{
+      const b=e.target.closest('button');if(!b)return;
+      m.style.display='none';
+      await nlShareTo(b.dataset.net);
+    });
+    document.addEventListener('click',e=>{
+      if(!e.target.closest('#share-menu')&&!e.target.closest('[data-sharebtn]'))m.style.display='none';
+    });
+  }
+  return m;
+}
+async function nlShareTo(net){
+  const url=location.origin+'/newsletter';
+  const t=(nlPendingShare||'CHESS INVEST Top 20').slice(0,500);
+  const links={
+    x:'https://twitter.com/intent/tweet?text='+encodeURIComponent(t+' '+url),
+    wa:'https://wa.me/?text='+encodeURIComponent(t+' '+url),
+    tg:'https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(t),
+    in:'https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(url),
+    fb:'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url),
+  };
+  if(net==='copy'){copyText(t+' '+url);return;}
+  if(links[net])window.open(links[net],'_blank','noopener');
+}
+function openNlShare(text,btn){
+  nlPendingShare=text;
+  const m=nlShareMenu(btn);
+  const r=btn.getBoundingClientRect();
+  m.style.left=Math.min(r.left,window.innerWidth-210)+'px';
+  m.style.top=(r.bottom+6)+'px';
+  btn.setAttribute('data-sharebtn','1');
+  m.style.display='block';
+}
 async function shareItem(rank){
   const it=getItem(rank);if(!it)return;
-  const text=`${it.title} (impacto ${it.impact}) — vía CHESS INVEST`;
-  if(navigator.share){try{await navigator.share({title:'CHESS INVEST Top 20',text,url:location.origin+'/newsletter'});return;}catch(e){if(e.name==='AbortError')return;}}
-  copyText(text+' '+location.origin+'/newsletter');
+  openNlShare(`${it.title} (impacto ${it.impact}) — vía CHESS INVEST`,event.currentTarget||document.activeElement);
 }
 async function shareEdition(){
   const text='♔ CHESS INVEST Top 20 IA: las 20 noticias más impactantes del día';
