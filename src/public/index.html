@@ -190,6 +190,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .agent-float-btn.chess:hover{box-shadow:0 6px 30px rgba(0,212,255,0.6)}
 .agent-float-btn.stock{background:var(--purple);color:#fff}
 .agent-float-btn.stock:hover{box-shadow:0 6px 30px rgba(179,136,255,0.6)}
+.agent-avatar{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;border:2px solid}
+.agent-avatar.sm{width:28px;height:28px;font-size:14px}
+.agent-avatar.chess{background:linear-gradient(135deg,rgba(0,212,255,0.25),rgba(0,212,255,0.05));border-color:var(--accent);box-shadow:0 0 12px rgba(0,212,255,0.35)}
+.agent-avatar.stock{background:linear-gradient(135deg,rgba(179,136,255,0.25),rgba(179,136,255,0.05));border-color:var(--purple);box-shadow:0 0 12px rgba(179,136,255,0.35)}
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--border);color:var(--text);font-size:11px;line-height:1.5;padding:8px 10px;border-radius:8px;width:max-content;max-width:250px;white-space:normal;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,0.5);pointer-events:none;font-family:'DM Sans',sans-serif}
+.tip-left[data-tip]:hover::after{left:auto;right:0;transform:none}
+.pro-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;font-family:'Space Mono',monospace;color:#000;background:linear-gradient(135deg,#ffd54a,#ff9d2e);border-radius:20px;padding:2px 9px;letter-spacing:1px;box-shadow:0 0 10px rgba(255,180,60,0.45);cursor:help;white-space:nowrap}
+.engine-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;cursor:help;white-space:nowrap}
 .theme-toggle{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:all 0.2s}
 .theme-toggle:hover{color:var(--accent);border-color:var(--accent)}
 .notif-bell{position:relative;background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.2s;flex-shrink:0}
@@ -401,9 +410,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="section-title">El Laboratorio — ChessInvest IA</div>
   <div class="ai-panel">
     <div class="ai-header">
-      <div>
-        <div class="ai-tag">♔ CHESS INVEST IA</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">Análisis profesional + conversaciones con tu amigo inversor</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <span class="agent-avatar chess" data-tip="ChessInvest AI — análisis profesional por ticker y conversaciones con memoria, contexto de tu cartera, alertas proactivas y base de conocimiento RAG.">♔</span>
+        <div>
+          <div class="ai-tag">♔ CHESS INVEST IA</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">Análisis profesional + conversaciones con tu amigo inversor</div>
+          <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span id="engine-badge" class="engine-badge" data-tip="Motor IA en uso ahora mismo">⚙ cargando motor...</span>
+            <a href="/chessinvestai" style="font-size:11px">Abrir chat completo →</a>
+          </div>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
@@ -511,8 +527,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </footer>
 
 <div class="agent-float">
-  <a href="/stockbroker" class="agent-float-btn stock">⚡ Stockbroker Futures</a>
-  <a href="/chessinvestai" class="agent-float-btn chess">♔ ChessInvest AI</a>
+  <a href="/stockbroker" class="agent-float-btn stock tip-left" data-tip="Stockbroker Futures — señales LARGO/CORTO con entrada, stop, targets, score y backtest. Futuros, índices y commodities."><span class="agent-avatar sm stock">⚡</span> Stockbroker Futures</a>
+  <a href="/chessinvestai" class="agent-float-btn chess tip-left" data-tip="ChessInvest AI — tu amigo inversor: análisis por ticker, memoria de conversación, contexto de tu cartera y RAG."><span class="agent-avatar sm chess">♔</span> ChessInvest AI</a>
 </div>
 
 </div>
@@ -1411,12 +1427,32 @@ async function callAnthropic(payload){
 
 renderMarkets();
 renderCriteria();
+updateEngineBadge();
+setInterval(updateEngineBadge,10*60*1000);
 updateClock();
 setInterval(updateClock,1000);
 setInterval(()=>{renderMarkets();},5*60*1000);
 checkAuth();
 pollNotifications();
 setInterval(pollNotifications, 30000);
+
+async function updateEngineBadge(){
+  const b=document.getElementById('engine-badge');
+  if(!b)return;
+  try{
+    const r=await fetch('/api/status');
+    const s=await r.json();
+    const m=s.freeModel||s.model||null;
+    if(m){
+      const short=String(m).split('/').pop();
+      b.textContent='⚙ '+short;
+      b.setAttribute('data-tip','Motor IA en uso ahora mismo (mejor modelo free disponible): '+m);
+    }else{
+      b.textContent='⚙ auto';
+      b.setAttribute('data-tip','Motor IA automático');
+    }
+  }catch(e){b.textContent='⚙ auto';}
+}
 
 function pollNotifications(){
   if(!getToken())return;

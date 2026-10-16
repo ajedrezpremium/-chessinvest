@@ -19,6 +19,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .voice-toggle.premium-locked{opacity:0.4;cursor:not-allowed}
 .back-btn{color:var(--muted);text-decoration:none;font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:8px;transition:all 0.2s}
 .back-btn:hover{color:var(--accent);border-color:var(--accent)}
+.agent-avatar{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;border:2px solid}
+.agent-avatar.sm{width:28px;height:28px;font-size:14px}
+.agent-avatar.chess{background:linear-gradient(135deg,rgba(0,212,255,0.25),rgba(0,212,255,0.05));border-color:var(--accent);box-shadow:0 0 12px rgba(0,212,255,0.35)}
+.agent-avatar.stock{background:linear-gradient(135deg,rgba(179,136,255,0.25),rgba(179,136,255,0.05));border-color:var(--purple,#b388ff);box-shadow:0 0 12px rgba(179,136,255,0.35)}
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--border);color:var(--text);font-size:11px;line-height:1.5;padding:8px 10px;border-radius:8px;width:max-content;max-width:250px;white-space:normal;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,0.5);pointer-events:none;font-family:'DM Sans',sans-serif}
+.pro-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;font-family:'Space Mono',monospace;color:#000;background:linear-gradient(135deg,#ffd54a,#ff9d2e);border-radius:20px;padding:2px 9px;letter-spacing:1px;box-shadow:0 0 10px rgba(255,180,60,0.45);cursor:help;white-space:nowrap}
 .chat-container{flex:1;display:flex;flex-direction:column;max-width:800px;width:100%;margin:0 auto;padding:20px}
 .messages{flex:1;overflow-y:auto;padding:20px 0;display:flex;flex-direction:column;gap:16px}
 .welcome{text-align:center;padding:60px 20px;color:var(--muted)}
@@ -84,9 +91,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </head>
 <body>
 <div class="header">
-  <div class="logo"><span>♔</span> CHESS INVEST AI</div>
+  <div class="logo"><span class="agent-avatar sm chess" data-tip="ChessInvest AI — análisis por ticker, memoria de conversación, contexto de tu cartera y base de conocimiento RAG.">♔</span> CHESS INVEST AI <span class="pro-badge" data-tip="Función PRO: respuestas por voz con ajustes de velocidad, tono e idioma.">PRO</span></div>
   <div class="header-actions">
-    <button class="voice-toggle" id="voice-toggle" onclick="toggleVoiceSettings()">🎙️ Voz</button>
+    <button class="voice-toggle" id="voice-toggle" onclick="toggleVoiceSettings()" data-tip="Voz a texto y respuestas por voz (PRO)">🎙️ Voz</button>
     <a href="/" class="back-btn">← Dashboard</a>
   </div>
 </div>

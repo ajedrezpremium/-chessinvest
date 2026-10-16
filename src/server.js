@@ -338,6 +338,7 @@ app.get('/api/status', async (_req, res) => {
     hasAI: Boolean(config.openRouter.apiKey || config.anthropic.apiKey),
     hasDB: dbTest.ok,
     db: dbTest.ok ? 'Supabase (PostgreSQL)' : 'Disconnected',
+    freeModel: require('./services/modelRouter').peekBestFreeModel() || null,
   });
 });
 

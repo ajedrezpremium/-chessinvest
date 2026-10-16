@@ -99,29 +99,93 @@ Responde SOLO JSON válido (sin markdown, sin backticks) con este formato:
 
 Reglas: 20 items ordenados por impacto descendente; sectores variados (tecnología, energía, macro, salud, financiero...); tickers en mayúsculas (vacío [] si no aplica); español neutro, sin política, sin asteriscos. Incluye SIEMPRE el disclaimer final en panorama: "Solo informativo, no es asesoramiento financiero."`;
 
-  const response = await callAI({
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 4000,
-    temperature: 0.7,
-  });
-
-  const text = response?.data?.content?.[0]?.text || '';
-  const cleaned = text.replace(/```json|```/g, '').trim();
-  let parsed = null;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    const s = cleaned.indexOf('{');
-    const e = cleaned.lastIndexOf('}');
-    if (s !== -1 && e > s) {
-      try {
-        parsed = JSON.parse(cleaned.slice(s, e + 1));
-      } catch { parsed = null; }
+  // Extrae el mayor objeto {...} balanceado (ignora preámbulos tipo "User Safety: safe")
+  function balancedObjects(text) {
+    const spans = [];
+    let depth = 0;
+    let start = -1;
+    let inStr = false;
+    let esc = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          spans.push(text.slice(start, i + 1));
+          start = -1;
+        }
+        if (depth < 0) depth = 0;
+      }
     }
+    return spans.sort((a, b) => b.length - a.length);
   }
-  if (!parsed || !Array.isArray(parsed.items) || !parsed.items.length) {
+
+  async function tryParse(text) {
+    const cleaned = String(text || '').replace(/```json|```/g, '').trim();
+    const candidates = [cleaned, ...balancedObjects(cleaned)];
+    for (const cand of candidates) {
+      try {
+        const p = JSON.parse(cand);
+        if (p && Array.isArray(p.items) && p.items.length) return p;
+      } catch { /* siguiente */ }
+      // Reparación: comas colgantes
+      try {
+        const fixed = cand.replace(/,\s*([}\]])/g, '$1');
+        const p = JSON.parse(fixed);
+        if (p && Array.isArray(p.items) && p.items.length) return p;
+      } catch { /* siguiente */ }
+    }
+    return null;
+  }
+
+  // El modelo free es pequeño: pedir 20 items de golpe falla. 2 tandas de 10.
+  async function requestBatch(focus, n) {
+    const batchPrompt = `${prompt}\n\nEN ESTA TANDA genera EXACTAMENTE ${n} items con enfoque en: ${focus}.\nRESPONDE ÚNICAMENTE CON EL JSON, SIN NINGÚN TEXTO ANTES NI DESPUÉS.`;
+    const response = await callAI({
+      messages: [{ role: 'user', content: batchPrompt }],
+      max_tokens: 3000,
+      temperature: 0.5,
+    });
+    const text = response?.data?.content?.[0]?.text || '';
+    const parsed = await tryParse(text);
+    if (!parsed) {
+      logger.warn(`Top20 tanda "${focus}" sin JSON (preview): ${text.slice(0, 200)}`);
+      return [];
+    }
+    return parsed.items || [];
+  }
+
+  const [batchA, batchB] = await Promise.all([
+    requestBatch('mercados, índices, macroeconomía, tipos, divisas y materias primas', 10),
+    requestBatch('empresas, resultados, tecnología, energía, salud y financiero', 10),
+  ]);
+
+  const seen = new Set();
+  const merged = [];
+  for (const raw of [...batchA, ...batchB]) {
+    const key = String(raw.title || '').toLowerCase().slice(0, 60);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(raw);
+  }
+  const parsed = { items: merged };
+  if (!parsed.items.length) {
     throw new Error('Top20 JSON inválido de la IA');
   }
+  // Título y panorama: derivar sin llamada extra
+  parsed.title = `Top 20 IA — ${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+  const top3 = merged.slice(0, 3).map((m) => m.title).join('; ');
+  parsed.panorama = `Edición con ${merged.length} noticias destacadas: ${top3}. Solo informativo, no es asesoramiento financiero.`;
 
   const items = parsed.items
     .slice(0, 25)
