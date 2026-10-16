@@ -362,6 +362,7 @@ app.get('/api/status', async (_req, res) => {
     hasDB: dbTest.ok,
     db: dbTest.ok ? 'Supabase (PostgreSQL)' : 'Disconnected',
     freeModel: require('./services/modelRouter').peekBestFreeModel() || null,
+    commit: String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
   });
 });
 
