@@ -78,6 +78,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button class="btn" onclick="loadToday()">Filtrar</button>
     <button class="btn btn-outline" onclick="savePrefs()">💾 Guardar como preferencia</button>
   </div>
+  <div class="panel" id="tg-card" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;display:none">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:24px">✈️</span>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:14px;font-weight:600">Recibe el Top 20 en Telegram</div>
+        <div id="tg-status" style="font-size:12px;color:var(--muted)">Conecta tu cuenta para el envío personalizado cada mañana.</div>
+      </div>
+      <a id="tg-channel-btn" class="btn btn-outline" style="display:none;text-decoration:none" target="_blank">📢 Unirme al canal</a>
+      <button class="btn" id="tg-link-btn" onclick="linkTelegram()">Vincular mi Telegram</button>
+    </div>
+    <div id="tg-code" style="display:none;margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:13px"></div>
+  </div>
   <div id="list"></div>
   <div class="archive">
     <h3>🗂 Ediciones anteriores</h3>
@@ -194,8 +206,42 @@ async function loadEdition(id){
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){}
 }
+async function loadTelegramCard(){
+  const card=document.getElementById('tg-card');
+  const token=localStorage.getItem('chessinvest_token');
+  if(!token){card.style.display='block';return;}
+  try{
+    const r=await fetch('/api/newsletter/prefs',{headers:{Authorization:'Bearer '+token}});
+    const p=await r.json();
+    card.style.display='block';
+    if(p.telegram_channel_url){
+      const b=document.getElementById('tg-channel-btn');
+      b.style.display='inline-block';b.href=p.telegram_channel_url;
+    }
+    if(!p.telegram_configured){
+      document.getElementById('tg-status').textContent='Telegram aún no está activo en el servidor.';
+      document.getElementById('tg-link-btn').style.display='none';
+    }else if(p.telegram_linked){
+      document.getElementById('tg-status').textContent='✅ Vinculado: recibirás tu edición filtrada cada mañana.';
+      document.getElementById('tg-link-btn').style.display='none';
+    }
+  }catch(e){card.style.display='block';}
+}
+async function linkTelegram(){
+  const token=localStorage.getItem('chessinvest_token');
+  if(!token){alert('Entra con tu cuenta primero');return;}
+  const box=document.getElementById('tg-code');
+  box.style.display='block';box.textContent='Generando código...';
+  try{
+    const r=await fetch('/api/newsletter/telegram/link',{method:'POST',headers:{Authorization:'Bearer '+token}});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Error');
+    box.innerHTML=`Tu código: <strong style="font-family:monospace;font-size:16px;color:var(--accent)">${d.code}</strong><br><br>1️⃣ Abre Telegram y busca <strong>@${d.botUsername}</strong><br>2️⃣ Envíale: <code>/start ${d.code}</code><br><br><a class="btn" style="text-decoration:none" target="_blank" href="https://t.me/${d.botUsername}?start=${d.code}">Abrir Telegram →</a>`;
+  }catch(e){box.textContent='Error: '+e.message;}
+}
 loadToday();
 loadArchive();
+loadTelegramCard();
 </script>
 </body>
 </html>

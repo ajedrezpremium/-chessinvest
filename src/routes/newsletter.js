@@ -86,6 +86,7 @@ router.get('/prefs', requireAuth, async (req, res) => {
       .select('newsletter_subscribed, newsletter_topics, newsletter_time, newsletter_lang, newsletter_min_impact, telegram_enabled, telegram_chat_id')
       .eq('user_id', req.user.id)
       .single();
+    const channelId = (require('../config').telegram.channelId || '').trim();
     res.json({
       subscribed: data?.newsletter_subscribed !== 0,
       topics: data?.newsletter_topics || 'all',
@@ -95,6 +96,9 @@ router.get('/prefs', requireAuth, async (req, res) => {
       telegram_enabled: !!data?.telegram_enabled,
       telegram_linked: !!data?.telegram_chat_id,
       telegram_configured: telegramConfigured(),
+      telegram_channel_url: channelId.startsWith('@')
+        ? `https://t.me/${channelId.slice(1)}`
+        : (channelId ? `https://t.me/c/${channelId.replace(/^-100/, '')}` : null),
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch prefs' });
