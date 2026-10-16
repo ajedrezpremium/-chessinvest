@@ -215,6 +215,93 @@ router.get('/stress', async (req, res) => {
   }
 });
 
+// ── Transactions (Cartera Pro: buy/sell/dividend) ──
+
+router.get('/transactions', async (req, res) => {
+  try {
+    const items = await select('transactions', { user_id: req.user.id }, {
+      order: { column: 'executed_at', ascending: false },
+      limit: Math.min(Number(req.query.limit) || 100, 500),
+    });
+    res.json({ transactions: items });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get transactions' });
+  }
+});
+
+router.post('/transactions', async (req, res) => {
+  try {
+    const { ticker, side, shares, price, fee, notes, executed_at } = req.body;
+    if (!ticker || !['buy', 'sell', 'dividend'].includes(side)) {
+      return res.status(400).json({ error: 'Valid ticker and side (buy/sell/dividend) required' });
+    }
+    const sh = Number(shares) || 0;
+    const px = Number(price) || 0;
+    if (side !== 'dividend' && (sh <= 0 || px <= 0)) {
+      return res.status(400).json({ error: 'Buy/sell need shares (>0) and price (>0)' });
+    }
+    if (side === 'dividend' && px <= 0 && sh <= 0) {
+      return res.status(400).json({ error: 'Dividend needs amount (price) or shares×price' });
+    }
+    let execDate = executed_at ? new Date(executed_at) : new Date();
+    if (Number.isNaN(execDate.getTime()) || execDate > new Date()) {
+      return res.status(400).json({ error: 'Invalid executed_at (must be past date)' });
+    }
+    if (side === 'sell') {
+      const { getSupabaseAdmin } = require('../services/supabase');
+      const admin = getSupabaseAdmin();
+      const { data: pos } = await admin.from('portfolio').select('shares').eq('user_id', req.user.id).eq('ticker', ticker.toUpperCase()).single();
+      if (!pos || Number(pos.shares) < sh) {
+        return res.status(400).json({ error: `No tienes ${sh} acciones de ${ticker.toUpperCase()} (tienes ${Number(pos?.shares) || 0})` });
+      }
+    }
+    const tx = await insert('transactions', {
+      user_id: req.user.id,
+      ticker: ticker.toUpperCase(),
+      side,
+      shares: sh,
+      price: px,
+      fee: Number(fee) || 0,
+      notes: notes || null,
+      executed_at: execDate.toISOString(),
+    });
+
+    // Mantener la tabla positions sincronizada (coste medio)
+    const { getSupabaseAdmin } = require('../services/supabase');
+    const admin = getSupabaseAdmin();
+    const { data: pos } = await admin.from('portfolio').select('*').eq('user_id', req.user.id).eq('ticker', tx.ticker).single();
+    if (side === 'buy') {
+      const nSh = (Number(pos?.shares) || 0) + sh;
+      const nCost = (Number(pos?.shares) || 0) * (Number(pos?.avg_price) || 0) + sh * px;
+      await admin.from('portfolio').upsert({
+        user_id: req.user.id, ticker: tx.ticker, shares: nSh, avg_price: nSh > 0 ? nCost / nSh : px,
+      }, { onConflict: 'user_id,ticker' });
+    } else if (side === 'sell') {
+      const nSh = Math.max(0, (Number(pos?.shares) || 0) - sh);
+      if (nSh <= 0) {
+        await admin.from('portfolio').delete().eq('user_id', req.user.id).eq('ticker', tx.ticker);
+      } else {
+        await admin.from('portfolio').update({ shares: nSh }).eq('user_id', req.user.id).eq('ticker', tx.ticker);
+      }
+    }
+
+    res.status(201).json(tx);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add transaction' });
+  }
+});
+
+// ── Performance (TWR + XIRR + benchmarks) ──
+
+router.get('/performance', async (req, res) => {
+  try {
+    const { getPerformance } = require('../services/performanceService');
+    res.json(await getPerformance(req.user.id));
+  } catch (err) {
+    res.status(500).json({ error: 'Performance no disponible ahora mismo' });
+  }
+});
+
 // ── Recommendation History ──
 
 router.get('/recommendations', async (req, res) => {

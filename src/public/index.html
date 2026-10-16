@@ -518,6 +518,27 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div id="stress-out"><div style="font-size:12px;color:var(--muted)">Pulsa Simular para ver el impacto estimado.</div></div>
     </div>
     <div class="ai-panel">
+      <div class="ai-header">
+        <div class="ai-tag">&#9670; RENDIMIENTO PRO</div>
+        <button class="btn btn-sm btn-outline" onclick="loadPerformance()">↻ Actualizar</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">TWR (rentabilidad ponderada por tiempo), TIR anualizada, dividendos y comparativa IBEX 35 / S&amp;P 500. Solo informativo.</div>
+      <div id="perf-out"><div style="font-size:12px;color:var(--muted)">Cargando rendimiento...</div></div>
+      <canvas id="perf-chart" height="180" style="width:100%;margin-top:12px;display:none"></canvas>
+    </div>
+    <div class="ai-panel">
+      <div class="ai-header"><div class="ai-tag">&#9670; OPERACIONES</div></div>
+      <div class="portfolio-form">
+        <div class="field"><label>Ticker</label><input type="text" id="tx-ticker" placeholder="Ej: SAN.MC" style="width:90px;text-transform:uppercase"></div>
+        <div class="field"><label>Lado</label><select id="tx-side" style="padding:8px 12px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px"><option value="buy">Compra</option><option value="sell">Venta</option><option value="dividend">Dividendo</option></select></div>
+        <div class="field"><label>Acciones</label><input type="number" id="tx-shares" placeholder="10" style="width:80px" step="any"></div>
+        <div class="field"><label>Precio / Importe</label><input type="number" id="tx-price" placeholder="12.50" style="width:90px" step="any"></div>
+        <div class="field"><label>Fecha</label><input type="date" id="tx-date" style="padding:8px 12px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px"></div>
+        <button class="btn btn-sm" onclick="addTransaction()">+ Registrar</button>
+      </div>
+      <div id="tx-container" class="rec-history"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+    <div class="ai-panel">
       <div class="ai-header"><div class="ai-tag">&#9670; HISTÓRICO DE RECOMENDACIONES</div></div>
       <div id="rec-history-container" class="rec-history"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -1264,6 +1285,88 @@ async function removeFromPortfolio(ticker){
   }catch(e){alert(e.message);}
 }
 
+async function loadPerformance(){
+  const out=document.getElementById('perf-out');
+  const cv=document.getElementById('perf-chart');
+  try{
+    const d=await apiFetch('/api/portfolio/performance');
+    if(d.empty){out.innerHTML='<div style="font-size:12px;color:var(--muted)">Sin operaciones registradas. Añade tu primera operación abajo.</div>';cv.style.display='none';return;}
+    const b0=d.benchmarks[0]||{},b1=d.benchmarks[1]||{};
+    const col=v=>v==null?'var(--muted)':(v>=0?'var(--green)':'var(--red)');
+    out.innerHTML=`
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-val" style="color:${col(d.twr_pct)}">${d.twr_pct==null?'—':d.twr_pct+'%'}</div><div class="stat-lbl">TWR total</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:${col(d.xirr_pct)}">${d.xirr_pct==null?'—':d.xirr_pct+'%'}</div><div class="stat-lbl">TIR anual (XIRR)</div></div>
+        <div class="stat-card"><div class="stat-val">${d.total_value}</div><div class="stat-lbl">Valor actual</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--green)">${d.dividends}</div><div class="stat-lbl">Dividendos cobrados</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:${col(b1.return_pct)}">${b1.return_pct==null?'—':b1.return_pct+'%'}</div><div class="stat-lbl">IBEX 35 periodo</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:${col(b0.return_pct)}">${b0.return_pct==null?'—':b0.return_pct+'%'}</div><div class="stat-lbl">S&amp;P 500 periodo</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Benchmarks = rentabilidad en precio en el mismo periodo (sin dividendos). TWR descuenta el efecto de tus aportaciones/retiradas.</div>`;
+    drawPerfChart(cv,d.curve||[]);
+  }catch(e){
+    out.innerHTML='<div style="font-size:12px;color:var(--red)">Error: '+e.message+'</div>';
+    cv.style.display='none';
+  }
+}
+
+function drawPerfChart(cv,curve){
+  if(!curve.length){cv.style.display='none';return;}
+  cv.style.display='block';
+  const W=cv.offsetWidth||600,H=180;
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  const series=[{k:'portfolio',c:'#00d4ff'},{k:'ibex',c:'#ffb300'},{k:'sp500',c:'#00e676'}];
+  const vals=curve.flatMap(p=>series.map(s=>p[s.k]).filter(v=>v!=null));
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+  const X=i=>curve.length<2?W/2:10+i*(W-20)/(curve.length-1);
+  const Y=v=>H-12-((v-mn)/((mx-mn)||1))*(H-30);
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.setLineDash([3,4]);ctx.beginPath();
+  const y100=mn<=100&&mx>=100?Y(100):null;
+  if(y100!=null){ctx.moveTo(0,y100);ctx.lineTo(W,y100);}
+  ctx.stroke();ctx.setLineDash([]);
+  ctx.font='10px monospace';ctx.fillStyle='#7a9bb5';
+  ctx.fillText('100',4,(y100||H-12)+11);
+  series.forEach(s=>{
+    ctx.strokeStyle=s.c;ctx.lineWidth=2;ctx.beginPath();
+    let started=false;
+    curve.forEach((p,i)=>{if(p[s.k]==null)return;started?ctx.lineTo(X(i),Y(p[s.k])):ctx.moveTo(X(i),Y(p[s.k]));started=true;});
+    ctx.stroke();
+  });
+  ctx.font='10px monospace';
+  let lx=10;
+  [['Cartera','#00d4ff'],['IBEX','#ffb300'],['S&P','#00e676']].forEach(([lbl,c])=>{
+    ctx.fillStyle=c;ctx.fillRect(lx,H-12,14,4);ctx.fillStyle='#7a9bb5';ctx.fillText(lbl,lx+18,H-8);lx+=70;
+  });
+}
+
+async function loadTransactions(){
+  const el=document.getElementById('tx-container');
+  try{
+    const d=await apiFetch('/api/portfolio/transactions?limit=50');
+    if(!d.transactions||!d.transactions.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px">Sin operaciones. Las posiciones migradas figuran como compras de apertura.</div>';return;}
+    const sideLbl={buy:'🟢 Compra',sell:'🔴 Venta',dividend:'💰 Dividendo'};
+    el.innerHTML=d.transactions.map(t=>`<div class="rec-row"><span>${sideLbl[t.side]||t.side} <strong style="font-family:'Space Mono',monospace;color:var(--accent)">${t.ticker}</strong> <span style="color:var(--muted)">${t.side==='dividend'?'':t.shares+' @ '}${t.price}${t.fee?(' (+'+t.fee+' comis.)'):''}</span></span><span style="font-size:11px;color:var(--muted);font-family:'Space Mono',monospace">${new Date(t.executed_at).toLocaleDateString('es-ES')}</span></div>`).join('');
+  }catch(e){el.innerHTML='<div style="font-size:12px;color:var(--red)">Error: '+e.message+'</div>';}
+}
+
+async function addTransaction(){
+  const ticker=document.getElementById('tx-ticker').value.trim().toUpperCase();
+  const side=document.getElementById('tx-side').value;
+  const shares=parseFloat(document.getElementById('tx-shares').value)||0;
+  const price=parseFloat(document.getElementById('tx-price').value)||0;
+  const date=document.getElementById('tx-date').value;
+  if(!ticker){alert('Ticker requerido');return;}
+  try{
+    await apiFetch('/api/portfolio/transactions',{method:'POST',body:JSON.stringify({ticker,side,shares,price,executed_at:date||undefined})});
+    document.getElementById('tx-ticker').value='';
+    document.getElementById('tx-shares').value='';
+    document.getElementById('tx-price').value='';
+    loadTransactions();loadPerformance();renderPortfolioHoldings();
+  }catch(e){alert(e.message);}
+}
+
 async function runStress(){
   const shock=document.getElementById('stress-shock').value;
   const out=document.getElementById('stress-out');
@@ -1353,6 +1456,8 @@ async function renderPortfolio(){
   renderWatchlist();
   renderPortfolioHoldings();
   renderRecHistory();
+  loadTransactions();
+  loadPerformance();
 }
 
 async function analizarAccion(){
