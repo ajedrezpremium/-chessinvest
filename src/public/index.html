@@ -304,6 +304,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="tab" onclick="window.location.href='/analyzer'">📊 Técnico</div>
   <div class="tab" onclick="switchTab('calendar')">Calendario</div>
   <div class="tab" onclick="window.location.href='/newsletter'">📰 Top 20 IA</div>
+  <div class="tab" onclick="window.location.href='/screener'">🔍 Screener</div>
 </div>
 
 <div class="main">
@@ -500,6 +501,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <div id="portfolio-container"><div class="loading"><div class="spinner"></div></div></div>
       </div>
+    </div>
+    <div class="ai-panel">
+      <div class="ai-header">
+        <div class="ai-tag">&#9670; SIMULADOR DE ESTRÉS</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="stress-shock" style="padding:6px 10px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px">
+            <option value="-10">Mercado −10%</option>
+            <option value="-20" selected>Mercado −20%</option>
+            <option value="-30">Mercado −30%</option>
+          </select>
+          <button class="btn btn-sm" onclick="runStress()">Simular</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Aplica la caída a cada posición según su beta (cálculo local, sin IA). Solo informativo.</div>
+      <div id="stress-out"><div style="font-size:12px;color:var(--muted)">Pulsa Simular para ver el impacto estimado.</div></div>
     </div>
     <div class="ai-panel">
       <div class="ai-header"><div class="ai-tag">&#9670; HISTÓRICO DE RECOMENDACIONES</div></div>
@@ -1246,6 +1262,27 @@ async function removeFromPortfolio(ticker){
     await apiFetch('/api/portfolio/portfolio/'+ticker,{method:'DELETE'});
     renderPortfolioHoldings();
   }catch(e){alert(e.message);}
+}
+
+async function runStress(){
+  const shock=document.getElementById('stress-shock').value;
+  const out=document.getElementById('stress-out');
+  out.innerHTML='<div class="loading"><div class="spinner"></div>Simulando...</div>';
+  try{
+    const d=await apiFetch('/api/portfolio/stress?shock='+encodeURIComponent(shock));
+    if(!d.positions.length){out.innerHTML='<div style="font-size:12px;color:var(--muted)">Cartera vacía — añade posiciones para simular.</div>';return;}
+    const rows=d.positions.map(p=>`<div class="rec-row"><span><strong style="font-family:'Space Mono',monospace;color:var(--accent)">${p.ticker}</strong> <span style="color:var(--muted)">β ${p.beta}</span></span><span class="rec-score" style="color:var(--red)">${p.est_loss_pct}% (${p.est_loss})</span></div>`).join('');
+    const warns=(d.warnings||[]).map(w=>`<div style="font-size:12px;color:var(--amber);margin-top:6px">⚠️ ${w}</div>`).join('');
+    out.innerHTML=`
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-val">${d.total_value}</div><div class="stat-lbl">Valor cartera</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--red)">${d.total_loss} (${d.total_loss_pct}%)</div><div class="stat-lbl">Pérdida estimada (${d.shock_pct}%)</div></div>
+        <div class="stat-card"><div class="stat-val">β ${d.avg_beta}</div><div class="stat-lbl">Beta media</div></div>
+      </div>
+      <div class="rec-history">${rows}</div>${warns}`;
+  }catch(e){
+    out.innerHTML='<div style="font-size:12px;color:var(--red)">Error: '+e.message+'</div>';
+  }
 }
 
 async function renderPortfolioHoldings(){

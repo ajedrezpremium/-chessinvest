@@ -112,6 +112,10 @@ app.get('/newsletter', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'newsletter.html'));
 });
 
+app.get('/screener', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'screener.html'));
+});
+
 app.get('/reset-password', (_req, res) => {
   res.send(`
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Recuperar Contraseña — CHESS INVEST</title>
@@ -315,6 +319,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/stockbroker', dailyUsageLimiter, agentLimiter, stockbrokerRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/screener', require('./routes/screener'));
 app.use('/api', trackUsage);
 
 // Test endpoint
@@ -367,6 +372,7 @@ async function startServer() {
     startJob('market-data-update', getAllIndices, 15 * 60 * 1000);
     startJob('price-alert-checker', checkPriceAlerts, 5 * 60 * 1000);
     startJob('telegram-poll', require('./services/telegramService').pollTelegramUpdates, 2 * 60 * 1000);
+    startJob('fundamentals-scan', require('./services/fundamentalsService').scanFundamentals, 24 * 60 * 60 * 1000);
 
     const msUntil8am = () => {
       const now = new Date();

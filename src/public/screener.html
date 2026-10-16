@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔍 Screener — CHESS INVEST</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--accent:#00d4ff;--green:#00e676;--red:#ff4444;--amber:#ffb300;--text:#e8f4f8;--muted:#7a9bb5;--border:rgba(0,212,255,0.15)}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh}
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-family:'Space Mono',monospace;font-size:15px;color:var(--accent);letter-spacing:2px}
+.back-btn{color:var(--muted);text-decoration:none;font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:8px}
+.back-btn:hover{color:var(--accent);border-color:var(--accent)}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+.section-title{font-size:13px;font-family:'Space Mono',monospace;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.panel{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end}
+.field{display:flex;flex-direction:column}
+.field label{font-size:11px;color:var(--muted);margin-bottom:3px}
+.field input,.field select{padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{background:#00b8d9}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.meta{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+tr:last-child td{border:none}
+tbody tr:hover{background:rgba(0,212,255,0.04)}
+.ticker{font-family:'Space Mono',monospace;font-weight:700;color:var(--accent)}
+.score{display:inline-block;font-family:'Space Mono',monospace;font-weight:700;font-size:12px;padding:2px 10px;border-radius:12px}
+.s-hi{background:rgba(0,230,118,0.15);color:var(--green);border:1px solid rgba(0,230,118,0.4)}
+.s-mid{background:rgba(255,179,0,0.15);color:var(--amber);border:1px solid rgba(255,179,0,0.4)}
+.s-lo{background:rgba(255,68,68,0.12);color:#ff8a8a;border:1px solid rgba(255,68,68,0.35)}
+.up{color:var(--green)}.down{color:var(--red)}
+.mini-btn{background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;text-decoration:none;display:inline-block}
+.mini-btn:hover{color:var(--accent);border-color:var(--accent)}
+.empty,.loading{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:12px}
+.table-wrap{overflow-x:auto}
+@media(max-width:600px){.wrap{padding:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">♔ CHESS INVEST · Screener</div>
+  <a href="/" class="back-btn">← Dashboard</a>
+</div>
+<div class="wrap">
+  <div class="section-title">Buscador de oportunidades (20 criterios)</div>
+  <div class="panel">
+    <div class="filters">
+      <div class="field"><label>Score mínimo</label>
+        <select id="f-score"><option value="0">Todos</option><option value="50">50+</option><option value="65" selected>65+</option><option value="75">75+ Solo top</option></select>
+      </div>
+      <div class="field"><label>PER máximo</label><input id="f-pe" type="number" step="any" placeholder="ej: 20"></div>
+      <div class="field"><label>Dividendo mín. %</label><input id="f-div" type="number" step="any" placeholder="ej: 2"></div>
+      <div class="field"><label>Deuda/EBITDA máx.</label><input id="f-debt" type="number" step="any" placeholder="ej: 3"></div>
+      <div class="field"><label>Sector</label><select id="f-sector"><option value="">Todos</option></select></div>
+      <div class="field"><label>Ordenar por</label>
+        <select id="f-sort"><option value="score">Score</option><option value="pe">PER (menor)</option><option value="div_yield">Dividendo</option><option value="momentum_3m">Momentum 3m</option><option value="market_cap">Capitalización</option></select>
+      </div>
+      <div><button class="btn" id="btn-search" onclick="search()">🔍 Buscar</button></div>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="panel">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Score</th><th>Ticker</th><th>Empresa</th><th>Precio</th><th>Var.</th><th>PER</th><th>Div.%</th><th>Beta</th><th>RSI</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="10"><div class="loading"><div class="spinner"></div>Buscando oportunidades...</div></td></tr></tbody>
+    </table></div>
+    <div class="note">Score 0–100 con 20 criterios deterministas (técnico, fundamental, macro, riesgo). Sin IA: cálculo directo sobre datos de mercado. Rentabilidades pasadas no garantizan futuras. Solo informativo.</div>
+  </div>
+</div>
+<script>
+function esc(s){return String(s==null?'—':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtPct(v){return v==null?'—':Number(v).toFixed(2)+'%';}
+function scoreClass(s){return s>=75?'s-hi':s>=55?'s-mid':'s-lo';}
+async function loadSectors(){
+  try{
+    const r=await fetch('/api/screener/sectors');
+    const d=await r.json();
+    const sel=document.getElementById('f-sector');
+    (d.sectors||[]).forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});
+  }catch(e){}
+}
+async function search(){
+  const btn=document.getElementById('btn-search');
+  btn.disabled=true;
+  const q=new URLSearchParams({
+    min_score:document.getElementById('f-score').value,
+    sort:document.getElementById('f-sort').value,
+    limit:'50',
+  });
+  const pe=document.getElementById('f-pe').value;if(pe)q.set('max_pe',pe);
+  const dv=document.getElementById('f-div').value;if(dv)q.set('min_div',dv);
+  const db=document.getElementById('f-debt').value;if(db)q.set('max_debt',db);
+  const sc=document.getElementById('f-sector').value;if(sc)q.set('sector',sc);
+  const tb=document.getElementById('rows');
+  tb.innerHTML='<tr><td colspan="10"><div class="loading"><div class="spinner"></div>Analizando...</div></td></tr>';
+  try{
+    const r=await fetch('/api/screener?'+q.toString());
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Error');
+    document.getElementById('meta').textContent=d.count+' resultados · actualizado: '+(d.updated_at?new Date(d.updated_at).toLocaleString('es-ES'):'—');
+    if(!d.rows.length){tb.innerHTML='<tr><td colspan="10"><div class="empty">Sin resultados. Relaja los filtros.</div></td></tr>';return;}
+    tb.innerHTML=d.rows.map(x=>`<tr>
+      <td><span class="score ${scoreClass(x.score)}">${x.score}</span></td>
+      <td class="ticker">${esc(x.ticker)}</td>
+      <td>${esc(x.name)}<div style="font-size:10px;color:var(--muted)">${esc(x.sector||'')}</div></td>
+      <td>${x.price!=null?Number(x.price).toFixed(2):'—'}</td>
+      <td class="${(x.chg_pct||0)>=0?'up':'down'}">${x.chg_pct!=null?((x.chg_pct>=0?'+':'')+Number(x.chg_pct).toFixed(2)+'%'):'—'}</td>
+      <td>${x.pe!=null?Number(x.pe).toFixed(1):'—'}</td>
+      <td>${x.div_yield!=null?(Number(x.div_yield)*100).toFixed(2)+'%':'—'}</td>
+      <td>${x.beta!=null?Number(x.beta).toFixed(2):'—'}</td>
+      <td>${x.rsi14!=null?Number(x.rsi14).toFixed(0):'—'}</td>
+      <td><a class="mini-btn" href="/analyzer?ticker=${encodeURIComponent(x.ticker)}">Analizar →</a></td>
+    </tr>`).join('');
+  }catch(e){
+    tb.innerHTML='<tr><td colspan="10"><div class="empty">Screener no disponible (el scan diario aún no terminó).</div></td></tr>';
+  }
+  btn.disabled=false;
+}
+loadSectors();
+search();
+</script>
+</body>
+</html>

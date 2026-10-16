@@ -5,7 +5,7 @@ async function fetchStockData(ticker) {
   const results = {};
 
   try {
-    const quote = await yahooFinance.quote(ticker, { timeout: 8000 });
+    const quote = await yahooFinance.quote(ticker);
     results.quote = quote;
   } catch (err) {
     logger.warn(`Quote failed for ${ticker}: ${err.message}`);
@@ -19,7 +19,7 @@ async function fetchStockData(ticker) {
       period1: past,
       period2: now,
       interval: '1d',
-    }, { timeout: 8000 });
+    });
     results.chart = chart;
   } catch (err) {
     logger.warn(`Chart failed for ${ticker}: ${err.message}`);
@@ -27,9 +27,8 @@ async function fetchStockData(ticker) {
   }
 
   try {
-    const modules = await yahooFinance.modules(ticker, {
+    const modules = await yahooFinance.quoteSummary(ticker, {
       modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'earnings', 'recommendationTrend'],
-      timeout: 8000,
     });
     results.modules = modules;
   } catch (err) {
