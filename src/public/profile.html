@@ -785,19 +785,20 @@
           `;
         }
 
+        const asArr = (d) => Array.isArray(d) ? d : (d.portfolio || d.watchlist || []);
         const [watchlistRes, portfolioRes, goalsRes, ideasRes, alertsRes] = await Promise.all([
-          fetch(`${API}/profile/watchlist`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
-          fetch(`${API}/portfolio`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
-          fetch(`${API}/profile/goals`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
-          fetch(`${API}/profile/ideas`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
-          fetch(`${API}/profile/alerts`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []),
+          apiFetchProfile(`${API}/profile/watchlist`).catch(() => []),
+          apiFetchProfile(`${API}/portfolio/portfolio`).catch(() => []),
+          apiFetchProfile(`${API}/profile/goals`).catch(() => []),
+          apiFetchProfile(`${API}/profile/ideas`).catch(() => []),
+          apiFetchProfile(`${API}/profile/alerts`).catch(() => []),
         ]);
 
-        const watchlist = Array.isArray(watchlistRes) ? watchlistRes : [];
-        const portfolio = Array.isArray(portfolioRes) ? portfolioRes : [];
-        const goals = Array.isArray(goalsRes) ? goalsRes : [];
-        const ideas = Array.isArray(ideasRes) ? ideasRes : [];
-        const alerts = Array.isArray(alertsRes) ? alertsRes : [];
+        const watchlist = asArr(watchlistRes);
+        const portfolio = asArr(portfolioRes);
+        const goals = asArr(goalsRes);
+        const ideas = asArr(ideasRes);
+        const alerts = asArr(alertsRes);
 
         const wlEl = document.getElementById('watchlistItems');
         if (wlEl && watchlist.length > 0) {
@@ -882,9 +883,8 @@
 
     async function savePersonal() {
       try {
-        const res = await fetch(`${API}/profile/personal`, {
+        await apiFetchProfile(`${API}/profile/personal`, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             first_name: document.getElementById('firstName').value,
             last_name: document.getElementById('lastName').value,
@@ -895,18 +895,16 @@
             experience: document.getElementById('experience').value,
           }),
         });
-        if (!res.ok) throw new Error('Failed');
         showToast('Datos personales guardados');
       } catch (err) {
-        showToast('Error al guardar datos', true);
+        showToast('Error al guardar datos: ' + err.message, true);
       }
     }
 
     async function saveSettings() {
       try {
-        const res = await fetch(`${API}/profile/settings`, {
+        await apiFetchProfile(`${API}/profile/settings`, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             theme: document.getElementById('theme').value,
             language: document.getElementById('language').value,
@@ -915,63 +913,56 @@
             notifications_sms: document.getElementById('notifSms').checked ? 1 : 0,
           }),
         });
-        if (!res.ok) throw new Error('Failed');
         showToast('Configuración guardada');
       } catch (err) {
-        showToast('Error al guardar configuración', true);
+        showToast('Error al guardar configuración: ' + err.message, true);
       }
     }
 
     async function saveAvatar() {
       if (!selectedAvatar) { showToast('Selecciona un avatar', true); return; }
       try {
-        const res = await fetch(`${API}/profile/avatar`, {
+        await apiFetchProfile(`${API}/profile/avatar`, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ avatar: selectedAvatar }),
         });
-        if (!res.ok) throw new Error('Failed');
         document.getElementById('avatar').textContent = selectedAvatar;
         closeModal('avatarModal');
         showToast('Avatar actualizado');
       } catch (err) {
-        showToast('Error al guardar avatar', true);
+        showToast('Error al guardar avatar: ' + err.message, true);
       }
     }
 
     async function subscribe(plan) {
       try {
-        const res = await fetch(`${API}/subscription/checkout`, {
+        const data = await apiFetchProfile(`${API}/subscription/checkout`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ plan }),
         });
-        const data = await res.json();
-        if (!res.ok) { showToast(data.error || 'Error', true); return; }
+        if (!data.url) { showToast('Error al crear checkout', true); return; }
         window.location.href = data.url;
       } catch (err) {
-        showToast('Error de conexión', true);
+        showToast(err.message || 'Error de conexión', true);
       }
     }
 
     async function openBillingPortal() {
       try {
-        const res = await fetch(`${API}/subscription/billing-portal`, {
+        const data = await apiFetchProfile(`${API}/subscription/billing-portal`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
-        const data = await res.json();
         if (data.url) window.open(data.url, '_blank');
+        else showToast('Sin suscripción que gestionar', true);
       } catch (err) {
-        showToast('Error al abrir portal', true);
+        showToast(err.message || 'Error al abrir portal', true);
       }
     }
 
     async function createGoal() {
       try {
-        await fetch(`${API}/profile/goals`, {
+        await apiFetchProfile(`${API}/profile/goals`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: document.getElementById('goalTitle').value,
             target_amount: parseFloat(document.getElementById('goalTarget').value),
@@ -984,15 +975,14 @@
         closeModal('goalModal');
         loadProfile();
       } catch (err) {
-        showToast('Error al crear objetivo', true);
+        showToast('Error al crear objetivo: ' + err.message, true);
       }
     }
 
     async function createIdea() {
       try {
-        await fetch(`${API}/profile/ideas`, {
+        await apiFetchProfile(`${API}/profile/ideas`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ticker: document.getElementById('ideaTicker').value.toUpperCase(),
             thesis: document.getElementById('ideaThesis').value,
@@ -1004,15 +994,14 @@
         closeModal('ideaModal');
         loadProfile();
       } catch (err) {
-        showToast('Error al crear idea', true);
+        showToast('Error al crear idea: ' + err.message, true);
       }
     }
 
     async function createAlert() {
       try {
-        await fetch(`${API}/profile/alerts`, {
+        await apiFetchProfile(`${API}/profile/alerts`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ticker: document.getElementById('alertTicker').value.toUpperCase(),
             target_price: parseFloat(document.getElementById('alertPrice').value),
@@ -1023,43 +1012,63 @@
         closeModal('alertModal');
         loadProfile();
       } catch (err) {
-        showToast('Error al crear alerta', true);
+        showToast('Error al crear alerta: ' + err.message, true);
       }
     }
 
     async function deleteGoal(id) {
       if (!confirm('¿Eliminar este objetivo?')) return;
-      await fetch(`${API}/profile/goals/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      showToast('Objetivo eliminado');
-      loadProfile();
+      try {
+        await apiFetchProfile(`${API}/profile/goals/${id}`, { method: 'DELETE' });
+        showToast('Objetivo eliminado');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, true);
+      }
     }
 
     async function deleteIdea(id) {
       if (!confirm('¿Eliminar esta idea?')) return;
-      await fetch(`${API}/profile/ideas/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      showToast('Idea eliminada');
-      loadProfile();
+      try {
+        await apiFetchProfile(`${API}/profile/ideas/${id}`, { method: 'DELETE' });
+        showToast('Idea eliminada');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, true);
+      }
     }
 
     async function deleteAlert(id) {
       if (!confirm('¿Eliminar esta alerta?')) return;
-      await fetch(`${API}/profile/alerts/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      showToast('Alerta eliminada');
-      loadProfile();
+      try {
+        await apiFetchProfile(`${API}/profile/alerts/${id}`, { method: 'DELETE' });
+        showToast('Alerta eliminada');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, true);
+      }
     }
 
     async function deleteWatchlist(ticker) {
       if (!confirm(`¿Eliminar ${ticker} de watchlist?`)) return;
-      await fetch(`${API}/portfolio/watchlist/${ticker}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      showToast('Eliminado de watchlist');
-      loadProfile();
+      try {
+        await apiFetchProfile(`${API}/portfolio/watchlist/${ticker}`, { method: 'DELETE' });
+        showToast('Eliminado de watchlist');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, true);
+      }
     }
 
     async function deletePortfolio(ticker) {
       if (!confirm(`¿Eliminar ${ticker} del portafolio?`)) return;
-      await fetch(`${API}/portfolio/${ticker}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      showToast('Eliminado del portafolio');
-      loadProfile();
+      try {
+        await apiFetchProfile(`${API}/portfolio/portfolio/${ticker}`, { method: 'DELETE' });
+        showToast('Eliminado del portafolio');
+        loadProfile();
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, true);
+      }
     }
 
     async function changePassword() {
@@ -1070,18 +1079,16 @@
       if (newP !== confirm) { showToast('Las contraseñas no coinciden', true); return; }
       if (newP.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres', true); return; }
       try {
-        const res = await fetch(`${API}/profile/password`, {
+        await apiFetchProfile(`${API}/profile/password`, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ current_password: current, new_password: newP }),
         });
-        if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error', true); return; }
         showToast('Contraseña cambiada correctamente');
         document.getElementById('currentPassword').value = '';
         document.getElementById('newPassword').value = '';
         document.getElementById('confirmPassword').value = '';
       } catch (err) {
-        showToast('Error al cambiar contraseña', true);
+        showToast(err.message || 'Error al cambiar contraseña', true);
       }
     }
 
