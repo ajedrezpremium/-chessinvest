@@ -55,6 +55,7 @@ async function createCheckoutSession(userId, email, plan) {
     success_url: `${config.appUrl}/?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
     cancel_url: `${config.appUrl}/?cancelled=true`,
     metadata: { userId: String(userId), plan },
+    subscription_data: { metadata: { userId: String(userId), plan } },
   });
 
   return { url: session.url, sessionId: session.id };
@@ -93,7 +94,10 @@ async function handleWebhookEvent(event) {
       const userId = String(customer.metadata?.userId || '');
       if (!userId) break;
 
-      const plan = Object.keys(PLANS).find(p => {
+      const planFromMetadata = sub.metadata?.plan && PLANS[sub.metadata.plan]
+        ? sub.metadata.plan
+        : null;
+      const plan = planFromMetadata || Object.keys(PLANS).find(p => {
         const priceId = PLANS[p].stripePriceId;
         return priceId && sub.items.data.some(item => item.price.id === priceId);
       }) || 'free';

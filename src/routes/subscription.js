@@ -37,6 +37,30 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   }
 });
 
+router.post('/checkout', requireAuth, async (req, res) => {
+  try {
+    const { plan } = req.body;
+    if (!['basic', 'pro', 'premium'].includes(plan)) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+    const { getUserProfile } = require('../services/supabaseAuth');
+    const profile = await getUserProfile(req.user.id);
+    if (!profile?.email) {
+      return res.status(400).json({ error: 'User email not found' });
+    }
+    const session = await createCheckoutSession(req.user.id, profile.email, plan);
+    res.json(session);
+  } catch (err) {
+    const logger = require('../services/logger');
+    logger.error(`Checkout error: ${err.message}`);
+    res.status(500).json({
+      error: err.message === 'Stripe not configured' || err.message === 'Invalid plan'
+        ? err.message
+        : 'Failed to create checkout session',
+    });
+  }
+});
+
 router.post('/billing-portal', requireAuth, async (req, res) => {
   try {
     const admin = getSupabaseAdmin();
