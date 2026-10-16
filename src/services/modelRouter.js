@@ -113,7 +113,7 @@ async function fetchFreeModelList() {
   return freeInflight;
 }
 
-async function getBestFreeModel() {
+async function getTopFreeModels(n = 3) {
   const fresh = freeCache.list && Date.now() - freeCache.ts < FREE_TTL_MS;
   let list = fresh ? freeCache.list : null;
 
@@ -133,13 +133,25 @@ async function getBestFreeModel() {
     } catch { /* sin caché persistente */ }
   }
 
-  if (!list?.length) return null;
-  const { pick, top } = pickBestFree(list);
+  if (!list?.length) return [];
+  const scored = [];
+  for (const m of list) {
+    const s = scoreFreeModel(m);
+    if (s >= 0) scored.push({ id: m.id, s });
+  }
+  scored.sort((a, b) => b.s - a.s);
+  const top = scored.slice(0, Math.max(1, n)).map((t) => t.id);
+  const pick = top[0] || null;
   if (pick && pick !== freeCache.pick) {
-    logger.info(`Best free model: ${pick} (top: ${top.map((t) => `${t.id.split('/').pop()}@${t.s}`).join(', ')})`);
+    logger.info(`Best free models: ${top.join(', ')}`);
   }
   freeCache.pick = pick;
-  return pick;
+  return top;
+}
+
+async function getBestFreeModel() {
+  const top = await getTopFreeModels(1);
+  return top[0] || null;
 }
 
 // Solo caché en memoria (para /api/status sin latencia extra); dispara refresh en fondo si caducó.
@@ -164,8 +176,8 @@ async function modelsForRequest(req) {
     chain.push(primary);
   }
   try {
-    const best = await getBestFreeModel();
-    if (best) chain.push(best);
+    const top = await getTopFreeModels(3);
+    for (const m of top) chain.push(m);
   } catch { /* opcional */ }
   if (primary === 'openrouter/free' && !chain.includes(primary)) chain.push(primary);
   const fallback = config.openRouter.fallbackModel;
@@ -173,4 +185,4 @@ async function modelsForRequest(req) {
   return { plan, models: chain.filter((m, i, a) => m && a.indexOf(m) === i) };
 }
 
-module.exports = { modelForPlan, planForUser, modelsForRequest, getBestFreeModel, peekBestFreeModel, scoreFreeModel };
+module.exports = { modelForPlan, planForUser, modelsForRequest, getBestFreeModel, getTopFreeModels, peekBestFreeModel, scoreFreeModel };

@@ -20,12 +20,12 @@ async function callAI(body, opts = {}) {
       if (last?.status === 200) return last;
       logger.warn(`Model ${model} failed (status ${last?.status}), trying next in chain`);
     }
-    return last || buildFallbackResponse(type);
+    return last || buildFallbackResponse(type, { noKey: false });
   }
   if (config.anthropic.apiKey) {
     return callAnthropic(body, type, markets);
   }
-  return buildFallbackResponse(type);
+  return buildFallbackResponse(type, { noKey: true });
 }
 
 function detectRequestType(body) {
@@ -186,8 +186,14 @@ function provideFallbackAlertas() {
   };
 }
 
-async function buildFallbackResponse(type) {
-  logger.warn(`No API key — fallback for type: ${type}`);
+async function buildFallbackResponse(type, opts = {}) {
+  if (opts.noKey) {
+    logger.warn(`No API key — fallback for type: ${type}`);
+  } else {
+    logger.warn(`AI providers failed — fallback for type: ${type}`);
+  }
+  const busyText = 'La IA está saturada ahora mismo (límite temporal del servicio gratuito). Espera unos segundos y vuelve a intentarlo.';
+  const noKeyText = 'Modo demostración — configura una API key en .env';
 
   const fallbacks = {
     recommendations: textResponse(JSON.stringify(provideFallbackRecomendaciones())),
@@ -222,7 +228,7 @@ async function buildFallbackResponse(type) {
     ),
   };
 
-  return { status: 200, data: fallbacks[type] || textResponse('Modo demostración — configura una API key en .env') };
+  return { status: 200, data: fallbacks[type] || textResponse(opts.noKey ? noKeyText : busyText) };
 }
 
 function mapAnthropicToOpenRouter(body) {
@@ -313,7 +319,7 @@ async function callAIStream(body, onToken, onDone, opts = {}) {
   const type = detectRequestType(body);
 
   if (!config.openRouter.apiKey) {
-    const fallback = await buildFallbackResponse(type);
+    const fallback = await buildFallbackResponse(type, { noKey: true });
     const text = fallback.data?.content?.[0]?.text || '';
     for (let i = 0; i < text.length; i += 10) {
       onToken(text.slice(i, i + 10));
@@ -419,8 +425,8 @@ async function callAIStream(body, onToken, onDone, opts = {}) {
     }
   }
 
-  // Todos los modelos fallaron: mock para no dejar el chat colgado
-  const fallback = await buildFallbackResponse(type);
+  // Todos los modelos fallaron: aviso honesto para no dejar el chat colgado
+  const fallback = await buildFallbackResponse(type, { noKey: false });
   const fbText = fallback.data?.content?.[0]?.text || '';
   onToken(fbText);
   if (onDone) onDone({ content: [{ text: fbText }], fallback: true });
