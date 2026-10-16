@@ -3,7 +3,8 @@ const { requireAuth } = require('../middleware/auth');
 const { getUserProfile } = require('../services/supabaseAuth');
 const { getSupabaseAdmin } = require('../services/supabase');
 const logger = require('../services/logger');
-const { generateDailyNewsletter, sendNewsletterToSubscribers, getLatestNewsletter, getNewsletterSubscribers } = require('../services/newsletterService');
+const { generateDailyNewsletter, sendNewsletterToSubscribers, getLatestNewsletter, getNewsletterSubscribers, getTodayNewsletter, getNewsletterItems, filterItems } = require('../services/newsletterService');
+const { generateLinkCode, isConfigured: telegramConfigured } = require('../services/telegramService');
 
 const router = Router();
 
@@ -41,6 +42,75 @@ router.get('/latest', async (req, res) => {
     res.json({ exists: true, id: nl.id, title: nl.title, summary: nl.summary, content: nl.content, generated_at: nl.generated_at, sent_count: nl.sent_count });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch newsletter' });
+  }
+});
+
+// Edición de hoy con items estructurados (público; filtros opcionales por query)
+router.get('/today', async (req, res) => {
+  try {
+    const nl = await getTodayNewsletter();
+    if (!nl) return res.json({ exists: false });
+    const minImpact = Number(req.query.min_impact) || 0;
+    const topics = req.query.topics || 'all';
+    const items = filterItems(nl.items || [], topics, minImpact);
+    res.json({
+      exists: true,
+      id: nl.id,
+      title: nl.title,
+      summary: nl.summary,
+      generated_at: nl.generated_at,
+      sent_count: nl.sent_count,
+      total_items: (nl.items || []).length,
+      items,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch newsletter' });
+  }
+});
+
+router.get('/items/:id', async (req, res) => {
+  try {
+    const items = await getNewsletterItems(req.params.id);
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch items' });
+  }
+});
+
+// Preferencias de newsletter del usuario (temas, hora, idioma, impacto mínimo)
+router.get('/prefs', requireAuth, async (req, res) => {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data } = await admin
+      .from('user_settings')
+      .select('newsletter_subscribed, newsletter_topics, newsletter_time, newsletter_lang, newsletter_min_impact, telegram_enabled, telegram_chat_id')
+      .eq('user_id', req.user.id)
+      .single();
+    res.json({
+      subscribed: data?.newsletter_subscribed !== 0,
+      topics: data?.newsletter_topics || 'all',
+      time: data?.newsletter_time || '08:00',
+      lang: data?.newsletter_lang || 'es',
+      min_impact: data?.newsletter_min_impact ?? 0,
+      telegram_enabled: !!data?.telegram_enabled,
+      telegram_linked: !!data?.telegram_chat_id,
+      telegram_configured: telegramConfigured(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch prefs' });
+  }
+});
+
+// Genera código de vinculación Telegram (/start CODIGO en el bot)
+router.post('/telegram/link', requireAuth, async (req, res) => {
+  try {
+    if (!telegramConfigured()) {
+      return res.status(503).json({ error: 'Telegram no configurado en el servidor (TELEGRAM_BOT_TOKEN)' });
+    }
+    const result = await generateLinkCode(req.user.id);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate link code' });
   }
 });
 

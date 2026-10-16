@@ -12,6 +12,18 @@ const config = {
     referer: process.env.OPENROUTER_REFERER || 'http://localhost:3000',
     appName: process.env.OPENROUTER_APP_NAME || 'CHESSINVEST',
     reasoningEffort: process.env.OPENROUTER_REASONING_EFFORT || 'none',
+    embedModel: process.env.OPENROUTER_EMBED_MODEL || 'openai/text-embedding-3-small',
+    models: {
+      free: process.env.MODEL_FREE || '',
+      basic: process.env.MODEL_BASIC || '',
+      pro: process.env.MODEL_PRO || '',
+      premium: process.env.MODEL_PREMIUM || '',
+    },
+    fallbackModel: process.env.MODEL_FALLBACK || 'openrouter/free',
+  },
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+    channelId: process.env.TELEGRAM_CHANNEL_ID || '',
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY || '',

@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const config = require('../config');
 const { callAI, callAIStream } = require('../services/aiProvider');
+const { modelsForRequest } = require('../services/modelRouter');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
 const { getTechnicalAnalysis, getMultiTimeframeAnalysis, formatTechnicalContext, formatMultiTimeframeContext } = require('../services/technicalAnalysisService');
@@ -287,7 +288,9 @@ router.post('/chat', optionalAuth, async (req, res) => {
       messages: [{ role: 'user', content: prompt }],
     };
 
-    const { status, data: aiResponse } = await callAI(aiPayload);
+    const { models: planModels } = await modelsForRequest(req);
+    const chain = [model, ...planModels].filter((m, i, a) => m && a.indexOf(m) === i);
+    const { status, data: aiResponse } = await callAI(aiPayload, { models: chain });
 
     if (status !== 200 || !aiResponse?.content?.[0]?.text) {
       const fallback = generateFallback(message);
@@ -415,6 +418,7 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
   const wisdomSent = `data: ${JSON.stringify({ type: 'wisdom', wisdom })}\n\n`;
   res.write(wisdomSent);
 
+  const { models: streamModels } = await modelsForRequest(req);
   await callAIStream(aiPayload,
     (token) => {
       fullText += token;
@@ -468,7 +472,8 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
         })}\n\n`);
       }
       res.end();
-    }
+    },
+    { models: streamModels }
   );
 });
 

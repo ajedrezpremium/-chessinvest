@@ -23,6 +23,9 @@ const AGENT_ENDPOINTS = [
   '/api/analyzer/chat',
 ];
 
+// null = sin probar; true/false = la columna usage_tracking.model existe o no
+let trackModelCol = null;
+
 async function getPlanDailyLimit(userId) {
   if (!userId) return { tokens: DAILY_TOKEN_LIMITS.free, requests: DAILY_REQUEST_LIMITS.free };
   try {
@@ -46,14 +49,29 @@ function trackUsage(req, _res, next) {
     try {
       const tokensIn = Math.round(JSON.stringify(req.body || {}).length / 4);
       const tokensOut = Math.round(JSON.stringify(body || {}).length / 4);
+      const model = typeof body?.model === 'string' ? body.model : null;
       const admin = getSupabaseAdmin();
       if (admin) {
-        admin.from('usage_tracking').insert({
+        const row = {
           user_id: userId,
           endpoint: req.originalUrl || req.path,
           tokens_in: tokensIn,
           tokens_out: tokensOut,
-        }).then(() => {}).catch((e) => logger.debug(`usage insert failed: ${e.message}`));
+        };
+        // Columna 'model' existe tras la migración v2.1; si aún no, reintentar sin ella.
+        const withModel = model && trackModelCol !== false
+          ? admin.from('usage_tracking').insert({ ...row, model })
+          : Promise.reject(new Error('skip-model'));
+        withModel
+          .then(() => {})
+          .catch((e) => {
+            if (trackModelCol !== false && /model/i.test(e.message || '')) trackModelCol = false;
+            if (e.message === 'skip-model' || /model/i.test(e.message || '')) {
+              admin.from('usage_tracking').insert(row).then(() => {}).catch(() => {});
+            } else {
+              logger.debug(`usage insert failed: ${e.message}`);
+            }
+          });
       }
     } catch {}
     return originalJson(body);

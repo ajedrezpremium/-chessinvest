@@ -6,12 +6,21 @@ const { getAllIndices } = require('./marketDataService');
 
 const VALID_TYPES = ['recommendations', 'alerts', 'summary', 'executive', 'analysis'];
 
-async function callAI(body) {
+async function callAI(body, opts = {}) {
   const type = detectRequestType(body);
   const markets = await getAllIndices();
 
   if (config.openRouter.apiKey) {
-    return callOpenRouter(body, type, markets);
+    const chain = Array.isArray(opts.models) && opts.models.length
+      ? opts.models
+      : [body.model || config.openRouter.model, config.openRouter.fallbackModel].filter((m, i, a) => m && a.indexOf(m) === i);
+    let last = null;
+    for (const model of chain) {
+      last = await callOpenRouter({ ...body, model }, type, markets);
+      if (last?.status === 200) return last;
+      logger.warn(`Model ${model} failed (status ${last?.status}), trying next in chain`);
+    }
+    return last || buildFallbackResponse(type);
   }
   if (config.anthropic.apiKey) {
     return callAnthropic(body, type, markets);
@@ -229,7 +238,7 @@ function mapAnthropicToOpenRouter(body) {
     : [];
 
   return {
-    model: config.openRouter.model,
+    model: body.model || config.openRouter.model,
     messages: system.concat(messages),
     max_tokens: body.max_tokens || 1000,
     temperature: typeof body.temperature === 'number' ? body.temperature : 0.7,
@@ -295,7 +304,11 @@ function safeParse(text) {
   }
 }
 
-async function callAIStream(body, onToken, onDone) {
+async function callAIStream(body, onToken, onDone, opts = {}) {
+  const resolvedModel = body.model
+    || (Array.isArray(opts.models) && opts.models[0])
+    || config.openRouter.model;
+  body = { ...body, model: resolvedModel };
   if (!config.openRouter.apiKey) {
     const fallback = await buildFallbackResponse(detectRequestType(body));
     const text = fallback.data?.content?.[0]?.text || '';

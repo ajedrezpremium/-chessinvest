@@ -49,6 +49,12 @@ router.put('/settings', requireAuth, async (req, res) => {
       'voice_rate',
       'voice_pitch',
       'voice_lang',
+      'newsletter_subscribed',
+      'newsletter_topics',
+      'newsletter_time',
+      'newsletter_lang',
+      'newsletter_min_impact',
+      'telegram_enabled',
     ];
     const updates = {};
     for (const field of allowedFields) {

@@ -118,7 +118,10 @@ async function sendEmail(to, type, data = {}) {
     return false;
   }
 
-  const { subject, html } = buildEmail(type, data);
+  // Override: permite enviar HTML/asunto ya construidos (newsletter Top20 por usuario)
+  const { subject, html } = data?._html
+    ? { subject: data._subject || `CHESS INVEST — ${type}`, html: data._html }
+    : buildEmail(type, data);
 
   try {
     await t.sendMail({

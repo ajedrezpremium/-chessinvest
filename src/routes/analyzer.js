@@ -4,6 +4,9 @@ const { getAllIndices } = require('../services/marketDataService');
 const { getMultiModalAnalysis, buildMultiModalPrompt } = require('../services/multiModalAnalysis');
 const { optionalAuth } = require('../middleware/auth');
 const { select } = require('../services/supabaseDb');
+const { getSupabaseAdmin } = require('../services/supabase');
+const { retrieveContext } = require('../services/rag');
+const { modelsForRequest } = require('../services/modelRouter');
 const logger = require('../services/logger');
 
 const INVESTMENT_WISDOM = [
@@ -140,22 +143,53 @@ const HISTORICAL_EVENTS = {
   'crash': 'Crash bursátil significativo',
 };
 
-const conversationMemory = new Map();
 const MAX_CONVERSATION_HISTORY = 10;
+const ANALYZER_AGENT = 'analyzer';
 
-function getConversationHistory(userId) {
+async function getConversationHistory(userId) {
   if (!userId) return [];
-  return conversationMemory.get(userId) || [];
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return [];
+    const { data, error } = await admin
+      .from('conversation_history')
+      .select('role, message')
+      .eq('user_id', userId)
+      .eq('agent', ANALYZER_AGENT)
+      .order('created_at', { ascending: true })
+      .limit(MAX_CONVERSATION_HISTORY);
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    logger.warn(`Analyzer history fetch failed: ${err.message}`);
+    return [];
+  }
 }
 
-function addConversationMessage(userId, role, message) {
+async function addConversationMessage(userId, role, message) {
   if (!userId) return;
-  let history = conversationMemory.get(userId) || [];
-  history.push({ role, message, timestamp: new Date().toISOString() });
-  if (history.length > MAX_CONVERSATION_HISTORY) {
-    history = history.slice(-MAX_CONVERSATION_HISTORY);
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return;
+    await admin.from('conversation_history').insert({
+      user_id: userId,
+      role,
+      agent: ANALYZER_AGENT,
+      message: String(message || '').substring(0, 1000),
+    });
+    const { data } = await admin
+      .from('conversation_history')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('agent', ANALYZER_AGENT)
+      .order('created_at', { ascending: true });
+    if (data && data.length > MAX_CONVERSATION_HISTORY) {
+      const toDelete = data.slice(0, data.length - MAX_CONVERSATION_HISTORY).map((r) => r.id);
+      await admin.from('conversation_history').delete().in('id', toDelete);
+    }
+  } catch (err) {
+    logger.warn(`Analyzer history save failed: ${err.message}`);
   }
-  conversationMemory.set(userId, history);
 }
 
 function formatConversationHistory(history) {
@@ -244,9 +278,10 @@ router.post('/chat', optionalAuth, async (req, res) => {
     const isDebate = detectDebateQuery(message);
     const portfolioContext = await getUserPortfolioContext(req.user?.id);
     const proactiveAlerts = await getProactiveAlerts(req.user?.id, markets);
-    const conversationHistory = getConversationHistory(req.user?.id);
+    const conversationHistory = await getConversationHistory(req.user?.id);
+    const ragContext = await retrieveContext(message, { matchCount: 4 });
 
-    addConversationMessage(req.user?.id, 'user', message);
+    await addConversationMessage(req.user?.id, 'user', message);
 
     let historicalContext = '';
     if (isBacktest) {
@@ -308,19 +343,21 @@ Sé cálido pero honesto sobre riesgos. Nunca des consejos específicos de compr
       systemPrompt = 'Eres ChessInvest Amigo, un amigo experto en inversiones. Conversacional, sabio, directo. Si el usuario tiene portfolio, considera sus holdings en tus respuestas.';
     }
 
+    if (ragContext) prompt += ragContext;
+
+    const { models } = await modelsForRequest(req);
     const aiPayload = {
-      model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
       temperature: 0.8,
       system: systemPrompt,
       messages: [{ role: 'user', content: prompt }],
     };
 
-    const { status, data: aiResponse } = await callAI(aiPayload);
+    const { status, data: aiResponse } = await callAI(aiPayload, { models });
 
     if (status !== 200 || !aiResponse?.content?.[0]?.text) {
       const fallback = generateChatFallback(message);
-      addConversationMessage(req.user?.id, 'ai', fallback);
+      await addConversationMessage(req.user?.id, 'ai', fallback);
       return res.json({
         response: fallback,
         wisdom,
@@ -328,7 +365,7 @@ Sé cálido pero honesto sobre riesgos. Nunca des consejos específicos de compr
       });
     }
 
-    addConversationMessage(req.user?.id, 'ai', aiResponse.content[0].text);
+    await addConversationMessage(req.user?.id, 'ai', aiResponse.content[0].text);
 
     res.json({
       response: aiResponse.content[0].text,
@@ -337,6 +374,7 @@ Sé cálido pero honesto sobre riesgos. Nunca des consejos específicos de compr
       portfolioAware: portfolioContext ? true : false,
       proactiveAlerts: proactiveAlerts.length > 0 ? proactiveAlerts : null,
       conversationAware: conversationHistory.length > 0 ? true : false,
+      ragAware: ragContext ? true : false,
       backtest: isBacktest ? true : false,
       debate: isDebate ? true : false,
     });

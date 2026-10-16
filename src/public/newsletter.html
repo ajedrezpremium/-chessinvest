@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>♔ Top 20 IA — CHESS INVEST Newsletter</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--accent:#00d4ff;--green:#00e676;--red:#ff4444;--amber:#ffb300;--text:#e8f4f8;--muted:#7a9bb5;--border:rgba(0,212,255,0.15)}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh}
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-family:'Space Mono',monospace;font-size:15px;color:var(--accent);letter-spacing:2px}
+.back-btn{color:var(--muted);text-decoration:none;font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:8px}
+.back-btn:hover{color:var(--accent);border-color:var(--accent)}
+.wrap{max-width:760px;margin:0 auto;padding:20px}
+.hero{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px}
+.hero h1{font-size:22px;margin-bottom:6px}
+.hero .date{font-size:12px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:12px}
+.hero p{font-size:14px;line-height:1.8;color:var(--text)}
+.filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.field{display:flex;flex-direction:column}
+.field label{font-size:11px;color:var(--muted);margin-bottom:3px}
+.field input,.field select{padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;outline:none}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer}
+.btn:hover{background:#00b8d9}
+.btn-outline{background:transparent;color:var(--accent);border:1px solid rgba(0,212,255,0.4)}
+.item{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.item-head{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}
+.rank{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);min-width:28px;padding-top:2px}
+.item-title{font-size:15px;font-weight:600;flex:1;line-height:1.5}
+.badge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;font-family:'Space Mono',monospace;white-space:nowrap}
+.b-high{background:rgba(255,68,68,0.15);color:#ff6b6b;border:1px solid rgba(255,68,68,0.4)}
+.b-mid{background:rgba(255,179,0,0.15);color:var(--amber);border:1px solid rgba(255,179,0,0.4)}
+.b-low{background:rgba(0,230,118,0.15);color:var(--green);border:1px solid rgba(0,230,118,0.4)}
+.item-meta{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 6px 38px;font-size:11px}
+.tickers{font-family:'Space Mono',monospace;color:var(--accent)}
+.sector{color:var(--muted)}
+.item-sum{font-size:13px;color:var(--text);line-height:1.7;margin-left:38px}
+.item-why{font-size:12px;color:var(--muted);line-height:1.6;margin:6px 0 0 38px;font-style:italic}
+.item-actions{display:flex;gap:8px;margin:10px 0 0 38px}
+.mini-btn{background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}
+.mini-btn:hover{color:var(--accent);border-color:var(--accent)}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+.loading{text-align:center;padding:40px;color:var(--muted)}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.archive{margin-top:20px}
+.archive h3{font-size:12px;font-family:'Space Mono',monospace;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
+.arch-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer}
+.arch-row:hover{border-color:var(--accent)}
+.arch-row span:last-child{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.footer{text-align:center;padding:24px;font-size:11px;color:var(--muted);line-height:1.7}
+.footer strong{color:var(--amber)}
+@media(max-width:600px){.item-sum,.item-why,.item-meta,.item-actions{margin-left:0}.wrap{padding:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">♔ CHESS INVEST · Top 20 IA</div>
+  <div style="display:flex;gap:8px">
+    <button class="back-btn" onclick="shareEdition()" title="Compartir edición">📤 Compartir</button>
+    <a href="/" class="back-btn">← Dashboard</a>
+  </div>
+</div>
+<div class="wrap">
+  <div id="hero" class="hero" style="display:none">
+    <h1 id="nl-title"></h1>
+    <div class="date" id="nl-date"></div>
+    <p id="nl-summary"></p>
+  </div>
+  <div class="filters">
+    <div class="field"><label>Temas (coma o "all")</label><input id="f-topics" value="all" style="width:160px"></div>
+    <div class="field"><label>Impacto mínimo</label>
+      <select id="f-impact"><option value="0">Todos</option><option value="60">60+</option><option value="80">80+ Solo alto</option></select>
+    </div>
+    <button class="btn" onclick="loadToday()">Filtrar</button>
+    <button class="btn btn-outline" onclick="savePrefs()">💾 Guardar como preferencia</button>
+  </div>
+  <div id="list"></div>
+  <div class="archive">
+    <h3>🗂 Ediciones anteriores</h3>
+    <div id="arch"></div>
+  </div>
+  <div class="footer">
+    <strong>⚠️ Solo informativo, no es asesoramiento financiero.</strong><br>
+    Generado por IA sobre datos públicos. Verifica siempre antes de invertir.
+  </div>
+</div>
+<script>
+let currentId=null;
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function badgeClass(i){return i>=80?'b-high':i>=60?'b-mid':'b-low';}
+async function loadToday(){
+  const t=document.getElementById('f-topics').value||'all';
+  const mi=document.getElementById('f-impact').value||'0';
+  const list=document.getElementById('list');
+  list.innerHTML='<div class="loading"><div class="spinner"></div>Cargando edición de hoy...</div>';
+  try{
+    const r=await fetch('/api/newsletter/today?topics='+encodeURIComponent(t)+'&min_impact='+mi);
+    const d=await r.json();
+    if(!d.exists){list.innerHTML='<div class="empty">Aún no hay edición hoy. Se genera cada mañana a las 08:00.</div>';return;}
+    currentId=d.id;
+    document.getElementById('hero').style.display='block';
+    document.getElementById('nl-title').textContent=d.title;
+    document.getElementById('nl-date').textContent=new Date(d.generated_at).toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    document.getElementById('nl-summary').textContent=d.summary||'';
+    if(!d.items.length){list.innerHTML='<div class="empty">Sin noticias para esos filtros. Prueba con impacto 0 o temas "all".</div>';return;}
+    list.innerHTML=d.items.map(it=>`
+      <div class="item">
+        <div class="item-head">
+          <span class="rank">#${it.rank}</span>
+          <span class="item-title">${esc(it.title)}</span>
+          <span class="badge ${badgeClass(it.impact)}">${it.impact}</span>
+        </div>
+        <div class="item-meta">
+          ${it.tickers?'<span class="tickers">'+esc(it.tickers)+'</span>':''}
+          ${it.sector?'<span class="sector">'+esc(it.sector)+'</span>':''}
+        </div>
+        <div class="item-sum">${esc(it.summary)}</div>
+        ${it.why_matters?'<div class="item-why">Por qué importa: '+esc(it.why_matters)+'</div>':''}
+        <div class="item-actions">
+          <button class="mini-btn" onclick="copyItem(${it.rank})">📋 Copiar</button>
+          <button class="mini-btn" onclick="shareItem(${it.rank})">📤 Compartir</button>
+        </div>
+      </div>`).join('');
+    window._items=d.items;
+  }catch(e){list.innerHTML='<div class="empty">Error de conexión.</div>';}
+}
+function getItem(rank){return (window._items||[]).find(i=>i.rank===rank);}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);alert('Copiado ✅');}
+  catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Copiado ✅');}
+}
+function copyItem(rank){
+  const it=getItem(rank);if(!it)return;
+  copyText(`${it.title} (impacto ${it.impact})\n${it.summary}\n${it.why_matters||''}\n— vía CHESS INVEST Top 20 IA`);
+}
+async function shareItem(rank){
+  const it=getItem(rank);if(!it)return;
+  const text=`${it.title} (impacto ${it.impact}) — vía CHESS INVEST`;
+  if(navigator.share){try{await navigator.share({title:'CHESS INVEST Top 20',text,url:location.origin+'/newsletter'});return;}catch(e){if(e.name==='AbortError')return;}}
+  copyText(text+' '+location.origin+'/newsletter');
+}
+async function shareEdition(){
+  const text='♔ CHESS INVEST Top 20 IA: las 20 noticias más impactantes del día';
+  if(navigator.share){try{await navigator.share({title:'CHESS INVEST Top 20',text,url:location.href});return;}catch(e){if(e.name==='AbortError')return;}}
+  copyText(text+' '+location.href);
+}
+async function savePrefs(){
+  const token=localStorage.getItem('chessinvest_token');
+  if(!token){alert('Entra con tu cuenta para guardar preferencias');return;}
+  const topics=document.getElementById('f-topics').value||'all';
+  const min_impact=Number(document.getElementById('f-impact').value||0);
+  try{
+    const r=await fetch('/api/profile/settings',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({newsletter_topics:topics,newsletter_min_impact:min_impact})});
+    if(!r.ok)throw new Error();
+    alert('Preferencias guardadas ✅ (email y Telegram usarán estos filtros)');
+  }catch(e){alert('No se pudo guardar');}
+}
+async function loadArchive(){
+  const token=localStorage.getItem('chessinvest_token');
+  const box=document.getElementById('arch');
+  if(!token){box.innerHTML='<div style="font-size:12px;color:var(--muted)">Entra con tu cuenta para ver el archivo.</div>';return;}
+  try{
+    const r=await fetch('/api/newsletter/history',{headers:{Authorization:'Bearer '+token}});
+    const d=await r.json();
+    if(!Array.isArray(d)||!d.length){box.innerHTML='<div style="font-size:12px;color:var(--muted)">Sin ediciones anteriores.</div>';return;}
+    box.innerHTML=d.slice(0,10).map(n=>`<div class="arch-row" onclick="loadEdition('${n.id}')"><span>${esc(n.title)}</span><span>${new Date(n.generated_at).toLocaleDateString('es-ES')} · ${n.sent_count||0}</span></div>`).join('');
+    window._arch=d;
+  }catch(e){box.innerHTML='';}
+}
+async function loadEdition(id){
+  try{
+    const r=await fetch('/api/newsletter/items/'+id);
+    const d=await r.json();
+    const meta=(window._arch||[]).find(n=>String(n.id)===String(id));
+    if(meta){
+      document.getElementById('hero').style.display='block';
+      document.getElementById('nl-title').textContent=meta.title;
+      document.getElementById('nl-date').textContent=new Date(meta.generated_at).toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+      document.getElementById('nl-summary').textContent=meta.summary||'';
+    }
+    const list=document.getElementById('list');
+    window._items=d.items||[];
+    list.innerHTML=(d.items||[]).map(it=>`
+      <div class="item">
+        <div class="item-head"><span class="rank">#${it.rank}</span><span class="item-title">${esc(it.title)}</span><span class="badge ${badgeClass(it.impact)}">${it.impact}</span></div>
+        <div class="item-meta">${it.tickers?'<span class="tickers">'+esc(it.tickers)+'</span>':''}${it.sector?'<span class="sector">'+esc(it.sector)+'</span>':''}</div>
+        <div class="item-sum">${esc(it.summary)}</div>
+        ${it.why_matters?'<div class="item-why">Por qué importa: '+esc(it.why_matters)+'</div>':''}
+      </div>`).join('')||'<div class="empty">Sin items.</div>';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(e){}
+}
+loadToday();
+loadArchive();
+</script>
+</body>
+</html>
