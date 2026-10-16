@@ -2,6 +2,7 @@ const { Router } = require('express');
 const config = require('../config');
 const { callAI, callAIStream } = require('../services/aiProvider');
 const { modelsForRequest } = require('../services/modelRouter');
+const { retrieveContext } = require('../services/rag');
 const { getAllIndices } = require('../services/marketDataService');
 const { getFuturesData } = require('../services/futuresDataService');
 const { getTechnicalAnalysis, getMultiTimeframeAnalysis, formatTechnicalContext, formatMultiTimeframeContext } = require('../services/technicalAnalysisService');
@@ -276,8 +277,9 @@ router.post('/chat', optionalAuth, async (req, res) => {
 
     const correlationBlock = formatCorrelationMatrix(corrMatrix);
     const calendarBlock = formatCalendarContext(calendar);
+    const ragContext = await retrieveContext(message, { matchCount: 3 });
 
-    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${mtaBlock ? '\n' + mtaBlock + '\n' : ''}${patterns.length ? '\nPATRONES DE VELAS DETECTADOS:\n' + formatPatternSummary(patterns) + '\n' : ''}${correlationBlock ? '\n' + correlationBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO, PATRONES DE VELAS, MATRIZ DE CORRELACIÓN y CALENDARIO ECONÓMICO para tu análisis. Sé específico con niveles de precio, stops y targets.`;
+    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${mtaBlock ? '\n' + mtaBlock + '\n' : ''}${patterns.length ? '\nPATRONES DE VELAS DETECTADOS:\n' + formatPatternSummary(patterns) + '\n' : ''}${correlationBlock ? '\n' + correlationBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}${ragContext}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO, PATRONES DE VELAS, MATRIZ DE CORRELACIÓN y CALENDARIO ECONÓMICO para tu análisis. Sé específico con niveles de precio, stops y targets.`;
 
     const model = selectModel(detectedFutures, mtaResults.map(m => m?.primary).filter(Boolean));
     const aiPayload = {
@@ -399,12 +401,13 @@ router.post('/chat/stream', optionalAuth, async (req, res) => {
     patterns.push(...pats);
   }
 
-  const correlationBlock = formatCorrelationMatrix(corrMatrix);
-  const calendarBlock = formatCalendarContext(calendar);
+    const correlationBlock = formatCorrelationMatrix(corrMatrix);
+    const calendarBlock = formatCalendarContext(calendar);
+    const ragContextStream = await retrieveContext(message, { matchCount: 3 });
 
-  const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${mtaBlock ? '\n' + mtaBlock + '\n' : ''}${patterns.length ? '\nPATRONES DE VELAS DETECTADOS:\n' + formatPatternSummary(patterns) + '\n' : ''}${correlationBlock ? '\n' + correlationBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO, PATRONES DE VELAS, MATRIZ DE CORRELACIÓN y CALENDARIO ECONÓMICO para tu análisis. Sé específico con niveles de precio, stops y targets.`;
+    const prompt = `DATOS DE FUTUROS EN TIEMPO REAL:\n${futuresContext}\n\nÍNDICES GLOBALES:\n${marketContext}${portfolioBlock}${conversationBlock}\n${detectedFutures.length ? `ACTIVOS DETECTADOS: ${detectedFutures.join(', ')}\n` : ''}${mtaBlock ? '\n' + mtaBlock + '\n' : ''}${patterns.length ? '\nPATRONES DE VELAS DETECTADOS:\n' + formatPatternSummary(patterns) + '\n' : ''}${correlationBlock ? '\n' + correlationBlock + '\n' : ''}${calendarBlock ? calendarBlock + '\n' : ''}${ragContextStream}SABIDURÍA DEL DÍA: ${wisdom}\n\nCONSULTA DEL USUARIO: "${message}"\n\nResponde siguiendo la estructura de FUTURES MASTER AI. Usa los datos de ANÁLISIS TÉCNICO, PATRONES DE VELAS, MATRIZ DE CORRELACIÓN y CALENDARIO ECONÓMICO para tu análisis. Sé específico con niveles de precio, stops y targets.`;
 
-  const model = selectModel(detectedFutures, mtaResults.map(m => m?.primary).filter(Boolean));
+    const model = selectModel(detectedFutures, mtaResults.map(m => m?.primary).filter(Boolean));
   const aiPayload = {
     model,
     max_tokens: 2000,

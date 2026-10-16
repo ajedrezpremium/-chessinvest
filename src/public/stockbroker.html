@@ -82,6 +82,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .signal-alert .sig-tag.red{border-color:var(--red);color:var(--red)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 .typing{color:var(--muted);font-size:13px;font-style:italic}
+.msg-actions{display:flex;gap:2px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)}
+.msg-actions button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 8px;border-radius:4px;transition:all 0.2s}
+.msg-actions button:hover{color:var(--accent);background:rgba(0,212,255,0.1)}
 @media(max-width:600px){.chat-container{padding:10px}.msg{max-width:95%}.welcome{padding:30px 10px}.header{flex-direction:column;gap:10px}.status-bar{font-size:10px;gap:8px}}
 </style>
 </head>
@@ -140,12 +143,58 @@ function formatMsg(text){
   return html;
 }
 
+const synth=window.speechSynthesis;
+
+function speak(text){
+  if(!synth)return;
+  synth.cancel();
+  const clean=String(text||'').replace(/[#*`\[\]]/g,'').replace(/\n+/g,'. ').replace(/\s+/g,' ').trim().slice(0,600);
+  if(!clean)return;
+  const u=new SpeechSynthesisUtterance(clean);
+  u.lang='es-ES';u.rate=1;u.pitch=1;
+  synth.speak(u);
+}
+
+function rawText(el){
+  const msg=el.closest('.msg');
+  if(msg&&msg.dataset.raw)return msg.dataset.raw;
+  return el.parentElement.textContent.replace(/[🔊📋📤⏹️]/g,'').trim();
+}
+
+function speakMsg(btn){
+  if(!synth)return;
+  if(synth.speaking){synth.cancel();btn.textContent='🔊';}
+  else{speak(rawText(btn));btn.textContent='⏹️';setTimeout(()=>{btn.textContent='🔊';},2000);}
+}
+
+async function copyMsg(btn){
+  const t=rawText(btn);
+  try{await navigator.clipboard.writeText(t);}
+  catch(e){
+    const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');}catch(_){}
+    ta.remove();
+  }
+  const old=btn.textContent;btn.textContent='✅';setTimeout(()=>{btn.textContent=old;},1200);
+}
+
+async function shareMsg(btn){
+  const t=rawText(btn).slice(0,500);
+  if(navigator.share){try{await navigator.share({title:'Stockbroker AI',text:t,url:location.origin+'/stockbroker'});return;}catch(e){if(e.name==='AbortError')return;}}
+  window.open('https://t.me/share/url?url='+encodeURIComponent(location.origin+'/stockbroker')+'&text='+encodeURIComponent(t),'_blank','noopener');
+}
+
+function msgActionsHtml(){
+  return `<div class="msg-actions"><button onclick="speakMsg(this)" title="Escuchar">🔊</button><button onclick="copyMsg(this)" title="Copiar">📋</button><button onclick="shareMsg(this)" title="Compartir">📤</button></div>`;
+}
+
 function addMsg(role,text){
   const welcome=document.querySelector('.welcome');
   if(welcome)welcome.remove();
   const div=document.createElement('div');
   div.className='msg '+role;
-  div.innerHTML=`<div class="msg-avatar">${role==='ai'?'⚡':'👤'}</div><div class="msg-bubble">${role==='ai'?formatMsg(text):text}</div>`;
+  if(role==='ai')div.dataset.raw=text;
+  div.innerHTML=`<div class="msg-avatar">${role==='ai'?'⚡':'👤'}</div><div class="msg-bubble">${role==='ai'?formatMsg(text):text}${role==='ai'?msgActionsHtml():''}</div>`;
   messages.appendChild(div);
   messages.scrollTop=messages.scrollHeight;
 }
@@ -214,6 +263,14 @@ async function sendMsg(){
           }
         }catch(e){/* skip */}
       }
+    }
+    msgDiv.dataset.raw=fullResponse;
+    if(fullResponse){
+      const bar=document.createElement('div');
+      bar.className='msg-actions';
+      bar.innerHTML='<button onclick="speakMsg(this)" title="Escuchar">🔊</button><button onclick="copyMsg(this)" title="Copiar">📋</button><button onclick="shareMsg(this)" title="Compartir">📤</button>';
+      bubble.appendChild(bar);
+      messages.scrollTop=messages.scrollHeight;
     }
     if(lastTA?.length){
       const chartId='chart-'+Date.now();

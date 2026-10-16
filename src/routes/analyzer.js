@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { callAI } = require('../services/aiProvider');
+const { callAI, callAIStream } = require('../services/aiProvider');
 const { getAllIndices } = require('../services/marketDataService');
 const { getMultiModalAnalysis, buildMultiModalPrompt } = require('../services/multiModalAnalysis');
 const { optionalAuth } = require('../middleware/auth');
@@ -385,6 +385,88 @@ Sé cálido pero honesto sobre riesgos. Nunca des consejos específicos de compr
       error: err.message,
       fallback: true,
     });
+  }
+});
+
+router.post('/chat/stream', optionalAuth, async (req, res) => {
+  const { message } = req.body;
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Mensaje requerido' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const send = (obj) => {
+    try {
+      res.write(`data: ${JSON.stringify(obj)}\n\n`);
+    } catch {}
+  };
+
+  try {
+    // Mismo contexto que /chat (duplicado a propósito: el handler clásico queda intacto)
+    const markets = await getAllIndices();
+    const marketContext = markets.slice(0, 6).map(m => `${m.name}: ${m.val} (${m.chg})`).join(', ');
+    const wisdom = INVESTMENT_WISDOM[Math.floor(Math.random() * INVESTMENT_WISDOM.length)];
+    const ticker = extractTicker(message);
+    const portfolioContext = await getUserPortfolioContext(req.user?.id);
+    const proactiveAlerts = await getProactiveAlerts(req.user?.id, markets);
+    const conversationHistory = await getConversationHistory(req.user?.id);
+    const ragContext = await retrieveContext(message, { matchCount: 4 });
+    await addConversationMessage(req.user?.id, 'user', message);
+
+    const portfolioBlock = portfolioContext ? `\n${portfolioContext}\n` : '';
+    const alertsBlock = proactiveAlerts.length > 0 ? `\n🚨 ALERTAS PROACTIVAS:\n${proactiveAlerts.map(a => `- ${a.message}`).join('\n')}\n` : '';
+    const conversationBlock = formatConversationHistory(conversationHistory);
+    let prompt;
+    let systemPrompt;
+    if (ticker) {
+      const multiModal = await getMultiModalAnalysis(ticker);
+      prompt = buildMultiModalPrompt(ticker, multiModal, message, portfolioContext, proactiveAlerts, conversationBlock, '', '');
+      systemPrompt = 'Eres ChessInvest Amigo, un amigo experto en inversiones con capacidades de análisis multi-modal (fundamental, técnico, sentimiento, macro). Conversacional, sabio, directo.';
+    } else {
+      prompt = `Eres "ChessInvest Amigo", un amigo íntimo experto en inversiones.${portfolioBlock}${alertsBlock}${conversationBlock}\nCONTEXTO DE MERCADO: ${marketContext}\nSABIDURÍA DEL DÍA: ${wisdom}\nPREGUNTA: "${message}"\n\nResponde en español, conversacional pero profesional, con razonamiento paso a paso, respuesta directa y riesgos. Nunca des consejos específicos de compra/venta.`;
+      systemPrompt = 'Eres ChessInvest Amigo, un amigo experto en inversiones. Conversacional, sabio, directo.';
+    }
+    if (ragContext) prompt += ragContext;
+
+    const { models } = await modelsForRequest(req);
+    const aiPayload = {
+      max_tokens: 2000,
+      temperature: 0.8,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: prompt }],
+    };
+
+    send({ type: 'wisdom', wisdom });
+    let fullText = '';
+    await callAIStream(aiPayload,
+      (token) => {
+        fullText += token;
+        send({ type: 'token', token });
+      },
+      async (result) => {
+        const text = result?.content?.[0]?.text || fullText;
+        await addConversationMessage(req.user?.id, 'ai', text);
+        send({
+          type: 'done',
+          wisdom,
+          multiModal: ticker ? true : false,
+          portfolioAware: portfolioContext ? true : false,
+          conversationAware: conversationHistory.length > 0,
+          ragAware: ragContext ? true : false,
+          fallback: result?.fallback || false,
+        });
+        res.end();
+      },
+      { models }
+    );
+  } catch (err) {
+    logger.error(`Analyzer stream error: ${err.message}`);
+    send({ type: 'done', error: err.message, fallback: true });
+    res.end();
   }
 });
 
