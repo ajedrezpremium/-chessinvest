@@ -1,15 +1,22 @@
 require('dotenv').config({ path: '.env' });
 const { createClient } = require('@supabase/supabase-js');
 
+// Contraseñas NUNCA en el repo (público): se piden por env, una por cuenta.
+// ADMIN_PASSWORD / ADMIN2_PASSWORD / ADMIN3_PASSWORD según el orden siguiente.
+if (!process.env.ADMIN_PASSWORD && !process.env.SKIP_PW_CHECK) {
+  console.error('✋ Establécele ADMIN_PASSWORD / ADMIN2_PASSWORD / ADMIN3_PASSWORD en .env antes de ejecutar este script');
+  process.exit(1);
+}
+
 const supabase = createClient(
   process.env.SUPABASE_PROJECT_URL,
   process.env.SUPABASE_SERVICE_ROLE
 );
 
 const users = [
-  { email: 'ajedrezpremium@gmail.com', password: 'Chess2026#', username: 'Admin', role: 'admin', avatar: '👑' },
-  { email: 'chessagencyai@gmail.com', password: 'Chess2026#', username: 'chessagencyai', role: 'user', avatar: '🤖' },
-  { email: 'carlosguerra@gmail.com', password: 'Chess2026#', username: 'xadreztomiño', role: 'admin', avatar: '♔' },
+  { email: 'ajedrezpremium@gmail.com', password: process.env.ADMIN_PASSWORD, username: 'Admin', role: 'admin', avatar: '👑' },
+  { email: 'chessagencyai@gmail.com', password: process.env.ADMIN2_PASSWORD, username: 'chessagencyai', role: 'user', avatar: '🤖' },
+  { email: 'carlosguerra@gmail.com', password: process.env.ADMIN3_PASSWORD, username: 'xadreztomiño', role: 'admin', avatar: '♔' },
 ];
 
 async function createAuthUsers() {

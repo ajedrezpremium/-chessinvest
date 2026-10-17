@@ -340,14 +340,17 @@ CREATE INDEX idx_password_resets_token ON password_resets(token);
 CREATE INDEX idx_newsletters_date ON newsletters(generated_at);
 
 -- 7. Seed de usuarios admin (idempotente)
-INSERT INTO users (email, username, password_hash, role, avatar)
+-- Las contraseñas la usadas crean create-auth-users.js con ADMIN_PASSWORD/
+-- ADMIN2_PASSWORD/ADMIN3_PASSWORD (nunca el repo, es público).
+INSERT INTO users (email, username, role, avatar)
 VALUES
-  ('ajedrezpremium@gmail.com', 'Admin', crypt('Chess2026#', gen_salt('bf')), 'admin', '👑'),
-  ('chessagencyai@gmail.com', 'chessagencyai', crypt('Chess2026#', gen_salt('bf')), 'user', '🤖'),
-  ('carlosguerra@gmail.com', 'xadreztomiño', crypt('Chess2026#', gen_salt('bf')), 'admin', '♔')
+  ('ajedrezpremium@gmail.com', 'Admin', 'admin', '👑'),
+  ('chessagencyai@gmail.com', 'chessagencyai', 'user', '🤖'),
+  ('carlosguerra@gmail.com', 'xadreztomiño', 'admin', '♔')
 ON CONFLICT (email) DO UPDATE SET
   role = EXCLUDED.role,
   avatar = EXCLUDED.avatar;
+-- password_hash hereda lo existente (o NULL en seed fresco: Auth es la fuente de verdad).
 
 INSERT INTO subscriptions (user_id, plan, status)
 SELECT id, CASE WHEN role = 'admin' THEN 'premium' ELSE 'free' END, 'active'

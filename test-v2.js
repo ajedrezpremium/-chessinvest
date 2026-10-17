@@ -26,6 +26,14 @@ function req(method, path, body, token) {
 }
 
 (async () => {
+  require('dotenv').config({ path: __dirname + '/.env' });
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    console.error('✋ ADMIN_EMAIL/ADMIN_PASSWORD no configurados en .env (no se detalla el admin en el repo)');
+    server.kill();
+    process.exit(1);
+  }
   await new Promise((r) => setTimeout(r, 3500));
   const results = [];
   const check = (name, cond, extra = '') => {
@@ -42,7 +50,7 @@ function req(method, path, body, token) {
     const markets = JSON.parse(r.body);
     check('GET /api/markets/flat', r.status === 200 && Array.isArray(markets.markets) && markets.markets.length > 0, `n=${markets.markets?.length}`);
 
-    r = await req('POST', '/api/auth/login', { email: 'ajedrezpremium@gmail.com', password: 'Chess2026#' });
+    r = await req('POST', '/api/auth/login', { email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
     const login = JSON.parse(r.body);
     check('POST /api/auth/login (admin)', r.status === 200 && !!login.token, `plan=${login.user?.plan}`);
     const token = login.token;
