@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a"><link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/sw-register.js" defer></script><script src="/stt.js" defer></script>
 <title>⚡ STOCKBROKER AI - Futuros</title>
 <meta name="description" content="Stockbroker IA: señales en tiempo real, alertas personalizadas, backtest y P&L verificado.">
 <meta property="og:title" content="Stockbroker IA — Señales y backtest con IA">
@@ -448,8 +448,10 @@ function toggleVoiceInput(){
     return;
   }
   if(!recognition){
-    recognition=initSpeechRecognition();
-    if(!recognition){alert('Tu navegador no soporta reconocimiento de voz.');return;}
+    // Fallback: grabar y transcribir con Whisper (/api/stt) en Firefox/Safari
+    ciSTTFallback({btn:micBtn,input});
+    isListening=false;
+    return;
   }
   recognition.start();
   isListening=true;

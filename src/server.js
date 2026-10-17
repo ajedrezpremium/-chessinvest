@@ -95,7 +95,7 @@ app.use(limiter);
 // Va ANTES de express.static o el static serviría el fragmento crudo.
 app.get('/', (_req, res) => {
   const frag = fs.readFileSync(path.resolve(__dirname, 'public', 'index.html'), 'utf8');
-  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>♔ CHESS INVEST — Mercados, IA y Cartera</title><meta name="description" content="Mercados en vivo, agentes de inversión con IA, newsletter Top 20, screener y cartera profesional."><meta property="og:title" content="ChessInvest — Mercados, IA y Cartera"><meta property="og:description" content="Agentes de inversión con IA, Top 20 diaria y cartera profesional. Gratis para empezar."><meta property="og:type" content="website"><meta property="og:url" content="https://chessinvest.onrender.com/"><meta property="og:site_name" content="CHESS INVEST"><meta name="twitter:card" content="summary"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a"></head><body>${frag}</body></html>`);
+  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>♔ CHESS INVEST — Mercados, IA y Cartera</title><meta name="description" content="Mercados en vivo, agentes de inversión con IA, newsletter Top 20, screener y cartera profesional."><meta property="og:title" content="ChessInvest — Mercados, IA y Cartera"><meta property="og:description" content="Agentes de inversión con IA, Top 20 diaria y cartera profesional. Gratis para empezar."><meta property="og:type" content="website"><meta property="og:url" content="https://chessinvest.onrender.com/"><meta property="og:site_name" content="CHESS INVEST"><meta name="twitter:card" content="summary"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/sw-register.js" defer></script><meta name="theme-color" content="#0a0e1a"></head><body>${frag}</body></html>`);
 });
 
 app.use(express.static(path.resolve(__dirname, 'public')));
@@ -350,6 +350,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/screener', require('./routes/screener'));
 app.use('/api/resources', require('./routes/resources'));
+app.use('/api', require('./routes/stt'));
 app.use('/api', trackUsage);
 
 // Test endpoint

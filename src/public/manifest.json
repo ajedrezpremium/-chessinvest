@@ -1,0 +1,23 @@
+{
+  "name": "CHESS INVEST — Mercados, IA y Cartera",
+  "short_name": "ChessInvest",
+  "description": "Agentes de inversión con IA, Top 20 diaria, screener y cartera profesional.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "ChessInvest AI", "url": "/chessinvestai" },
+    { "name": "Stockbroker IA", "url": "/stockbroker" },
+    { "name": "Top 20 IA", "url": "/newsletter" },
+    { "name": "Track Record", "url": "/track-record" }
+  ]
+}

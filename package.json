@@ -28,6 +28,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "libsodium-wrappers": "^0.8.4",
     "vitest": "^4.1.6"
   }

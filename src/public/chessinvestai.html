@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a"><link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/sw-register.js" defer></script><script src="/stt.js" defer></script>
 <title>♔ CHESS INVEST AI - Amigo Inversor</title>
 <meta name="description" content="Tu agente de inversión con IA: análisis de mercado en tiempo real, memoria conversacional, voz y cartera.">
 <meta property="og:title" content="ChessInvest AI — Tu agente de inversión con IA">
@@ -345,11 +345,11 @@ function toggleVoiceInput(){
   }
 
   if(!recognition){
-    recognition=initSpeechRecognition();
-    if(!recognition){
-      alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
-      return;
-    }
+    // Fallback: grabar y transcribir con Whisper (/api/stt) en Firefox/Safari
+    ciSTTFallback({btn:micBtn,input,lang:voiceSettings.lang});
+    isListening=false;
+    voiceStatus.classList.remove('active');
+    return;
   }
 
   recognition.lang=voiceSettings.lang;
