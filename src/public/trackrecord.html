@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#0a0e1a">
+<title>Track Record — Señales del Stockbroker IA | CHESS INVEST</title>
+<meta name="description" content="Track record público del Stockbroker IA: señales de futuros con P&L verificado, distribución largo/corto y score medio. Transparencia ante todo.">
+<meta property="og:title" content="Track Record — Señales del Stockbroker IA">
+<meta property="og:description" content="Señales de futuros con P&L verificado y transparencia total. Sin cherry-picking.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://chessinvest.onrender.com/track-record">
+<meta property="og:site_name" content="CHESS INVEST">
+<meta name="twitter:card" content="summary">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--bg4:#1e2d42;--accent:#00d4ff;--green:#00e676;--red:#ff4444;--amber:#ffb300;--text:#e8f4f8;--muted:#7a9bb5;--border:rgba(0,212,255,0.15);--card-border:rgba(0,212,255,0.12)}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:2px;text-decoration:none}
+.main{max-width:900px;margin:0 auto;padding:32px 20px}
+h1{font-family:'Space Mono',monospace;font-size:22px;color:var(--accent);margin-bottom:6px}
+.sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.6}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px}
+.stat{background:var(--bg3);border:1px solid var(--card-border);border-radius:12px;padding:16px}
+.stat-val{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;margin-bottom:2px}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.stat.green .stat-val{color:var(--green)}.stat.red .stat-val{color:var(--red)}
+.assets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:28px}
+.asset-chip{background:var(--bg4);border:1px solid var(--card-border);border-radius:20px;padding:4px 12px;font-size:11px;font-family:'Space Mono',monospace;color:var(--accent)}
+.asset-chip span{color:var(--muted)}
+table{width:100%;border-collapse:collapse;background:var(--bg3);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;font-size:12px}
+th{background:var(--bg4);padding:10px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'Space Mono',monospace}
+td{padding:10px 12px;border-top:1px solid rgba(0,212,255,0.06)}
+.dir-long{color:var(--green);font-weight:600}.dir-short{color:var(--red);font-weight:600}
+.status-target{color:var(--green)}.status-stopped{color:var(--red)}.status-open{color:var(--amber)}
+.pnl-pos{color:var(--green);font-family:'Space Mono',monospace}.pnl-neg{color:var(--red);font-family:'Space Mono',monospace}
+.date{color:var(--muted);font-size:11px;font-family:'Space Mono',monospace}
+.empty{background:var(--bg3);border:1px dashed var(--card-border);border-radius:12px;padding:48px 20px;text-align:center;color:var(--muted);font-size:14px}
+.disclaimer{background:rgba(255,179,0,0.08);border:1px solid rgba(255,179,0,0.25);border-left:3px solid var(--amber);border-radius:10px;padding:14px 16px;margin:28px 0;font-size:12px;color:#c9d9e6;line-height:1.6}
+.cta{display:block;text-align:center;background:var(--accent);color:#000;text-decoration:none;font-weight:600;border-radius:10px;padding:14px;font-size:14px;margin:20px auto 40px;max-width:380px}
+.cta:hover{background:#00b8d9}
+.footer{text-align:center;padding:24px;font-size:11px;color:var(--muted);line-height:1.7}
+.footer a{color:var(--accent);text-decoration:none}
+.loading{text-align:center;padding:60px;color:var(--muted)}
+.spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width:640px){ th.hide-sm,td.hide-sm{display:none} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="logo" href="/">♔ CHESS INVEST</a>
+  <a class="logo" href="/stockbroker" style="font-size:12px">⚡ Probar el Stockbroker</a>
+</div>
+<div class="main">
+<h1>⚡ Track Record — Stockbroker IA</h1>
+<p class="sub">Historial de señales generadas por el agente de futuros, públicas por defecto. Sin cherry-picking: se muestra la pérdida con la misma prominencia que la ganancia.</p>
+
+<div id="content"><div class="loading"><div class="spinner"></div>Cargando track record...</div></div>
+
+<div class="disclaimer">
+<strong>⚠️ AVISO:</strong> Las señales se capturan automáticamente del análisis del agente y <strong>no se filtran ni se editan</strong>.
+El estado de cada señal se calcula contra el <strong>precio actual de mercado</strong> (+% respecto a la entrada); una señal marcada "En curso" no está cerrada.
+No constituye asesoramiento financiero. Puedes verificar los precios en tu bróker. Ver <a href="/terminos" style="color:var(--accent)">Términos</a>.
+</div>
+
+<a class="cta" href="/pricing">Empieza gratis con ChessInvest →</a>
+</div>
+<div class="footer">
+  Solo informativo, no es asesoramiento financiero. ·
+  <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a> ·
+  <a href="/newsletter">Top 20 IA</a> · <a href="/track-record">Track Record</a>
+</div>
+<script>
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(n,d=2){return n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function when(iso){return iso?new Date(iso).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'}):'—';}
+(async()=>{
+  try{
+    const r=await fetch('/api/stockbroker/trackrecord');
+    const {stats,signals}=await r.json();
+    const el=document.getElementById('content');
+    if(!stats){
+      el.innerHTML='<div class="empty">📈 Aún no hay señales registradas.<br><br>Las señales del Stockbroker IA aparecen aquí automáticamente cuando el agente las emite en el chat.<br><br><a href="/stockbroker" style="color:var(--accent)">Pruébalo →</a></div>';
+      return;
+    }
+    const winRate=(stats.closedTargets+stats.closedStops)>0
+      ? Math.round(stats.closedTargets/(stats.closedTargets+stats.closedStops)*100)
+      : null;
+    el.innerHTML=`
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${stats.total}</div><div class="stat-label">Señales emitidas</div></div>
+        <div class="stat"><div class="stat-val" style="color:var(--green)">${stats.longs}</div><div class="stat-label">Largos</div></div>
+        <div class="stat"><div class="stat-val" style="color:var(--red)">${stats.shorts}</div><div class="stat-label">Cortos</div></div>
+        <div class="stat ${winRate!=null&&winRate>=50?'green':'red'}"><div class="stat-val">${winRate!=null?winRate+'%':'—'}</div><div class="stat-label">Cerradas ganadoras</div></div>
+        <div class="stat"><div class="stat-val" style="color:var(--accent)">${fmt(stats.avgScore,1)}</div><div class="stat-label">Score medio</div></div>
+      </div>
+      <div class="assets">${stats.topAssets.map(a=>`<span class="asset-chip">${esc(a.asset)} <span>×${a.n}</span></span>`).join('')}</div>
+      <table>
+        <thead><tr><th>Fecha</th><th>Activo</th><th>Dirección</th><th class="hide-sm">Entrada</th><th>Actual</th><th class="hide-sm">Stop / TP</th><th>P&L</th><th>Estado</th></tr></thead>
+        <tbody>${signals.map(s=>{
+          const cls=s.status==='target'?'status-target':s.status==='stopped'?'status-stopped':'status-open';
+          const lbl=s.status==='target'?'🎯 Target':s.status==='stopped'?'🛑 Stop':s.status==='abierta'?'⏳ En curso':'—';
+          return `<tr>
+            <td class="date">${when(s.createdAt)}</td>
+            <td style="font-family:'Space Mono',monospace;font-weight:700">${esc(s.asset)}</td>
+            <td><span class="${s.direction==='LARGO'?'dir-long':'dir-short'}">${s.direction==='LARGO'?'▲ LARGO':'▼ CORTO'}</span></td>
+            <td class="hide-sm date">${fmt(s.entryPrice)}</td>
+            <td class="date">${fmt(s.currentPrice)}</td>
+            <td class="hide-sm date">${fmt(s.stopLoss)} / ${fmt(s.takeProfit)}</td>
+            <td>${s.pnlPct!=null?`<span class="${s.pnlPct>=0?'pnl-pos':'pnl-neg'}">${s.pnlPct>=0?'+':''}${fmt(s.pnlPct)}%</span>`:'—'}</td>
+            <td class="${cls}">${lbl}</td>
+          </tr>`;}).join('')}</tbody>
+      </table>`;
+  }catch(e){
+    document.getElementById('content').innerHTML='<div class="empty">No se pudo cargar el track record. <a href="/track-record" style="color:var(--accent)">Reintentar</a></div>';
+  }
+})();
+</script>
+</body>
+</html>

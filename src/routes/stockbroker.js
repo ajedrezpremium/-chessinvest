@@ -622,6 +622,100 @@ El mercado muestra condiciones mixtas. Recomiendo cautela hasta tener confirmaci
 *Recuerda: "La preservación del capital es la regla número uno." — Ray Dalio*`;
 }
 
+// Track-record PÚBLICO: agregados + últimas señales (sin exponer usuarios).
+// P&L "verificado" = precio actual vs entrada; cerrada si cruzó TP/SL (aprox. intradía).
+router.get('/trackrecord', optionalAuth, async (req, res) => {
+  try {
+    const admin = getSupabaseAdmin();
+    if (!admin) return res.json({ stats: null, signals: [] });
+    const { data: rows, error } = await admin
+      .from('signal_history')
+      .select('asset, direction, entry_price, stop_loss, take_profit, score, confidence, risk_reward, created_at')
+      .eq('agent', 'stockbroker')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    const signals = rows || [];
+    if (!signals.length) return res.json({ stats: null, signals: [] });
+
+    const total = signals.length;
+    const longs = signals.filter(s => s.direction === 'LARGO').length;
+    const shorts = total - longs;
+    const avgScore = signals.reduce((a, s) => a + (Number(s.score) || 0), 0) / total;
+    const avgConf = signals.reduce((a, s) => a + (Number(s.confidence) || 0), 0) / total;
+    const byAsset = {};
+    for (const s of signals) byAsset[s.asset] = (byAsset[s.asset] || 0) + 1;
+
+    // Precio actual solo de las últimas 12 señales (las mostradas)
+    const recent = signals.slice(0, 12);
+    let prices = {};
+    try {
+      const futures = await getFuturesData();
+      for (const f of futures || []) if (f?.id) prices[f.id] = f.price;
+    } catch { sinPrecios(); }
+    function sinPrecios() { return null; }
+
+    let closedWins = 0, closedLosses = 0;
+    const detail = recent.map(s => {
+      const entry = parseFloat(s.entry_price || 0);
+      const stop = parseFloat(s.stop_loss || 0);
+      const tp = parseFloat(String(s.take_profit || '').split(',')[0]) || null;
+      const cur = prices[s.asset] != null ? Number(prices[s.asset]) : null;
+      const isLong = s.direction === 'LARGO';
+      let status = 'desconocido';
+      let pnlPct = null;
+      if (cur != null && entry > 0) {
+        pnlPct = isLong ? ((cur - entry) / entry) * 100 : ((entry - cur) / entry) * 100;
+        if (isLong) {
+          if (stop > 0 && cur <= stop) status = 'stopped';
+          else if (tp && cur >= tp) status = 'target';
+          else status = 'abierta';
+        } else {
+          if (stop > 0 && cur >= stop) status = 'stopped';
+          else if (tp && cur <= tp) status = 'target';
+          else status = 'abierta';
+        }
+        if (status === 'target') closedWins++;
+        if (status === 'stopped') closedLosses++;
+        pnlPct = Math.round(pnlPct * 100) / 100;
+      }
+      return {
+        asset: s.asset,
+        direction: s.direction,
+        entryPrice: entry || null,
+        stopLoss: stop || null,
+        takeProfit: tp,
+        score: s.score != null ? Number(s.score) : null,
+        confidence: s.confidence != null ? Number(s.confidence) : null,
+        riskReward: s.risk_reward || null,
+        createdAt: s.created_at,
+        currentPrice: cur,
+        pnlPct,
+        status,
+      };
+    });
+
+    res.json({
+      stats: {
+        total,
+        longs,
+        shorts,
+        avgScore: Math.round(avgScore * 10) / 10,
+        avgConfidence: Math.round(avgConf * 10) / 10,
+        closedTargets: closedWins,
+        closedStops: closedLosses,
+        assetsTracked: Object.keys(byAsset).length,
+        topAssets: Object.entries(byAsset).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([asset, n]) => ({ asset, n })),
+        firstSignal: signals[total - 1]?.created_at || null,
+      },
+      signals: detail,
+    });
+  } catch (err) {
+    logger.error(`Trackrecord error: ${err.message}`);
+    res.status(500).json({ error: 'No se pudo generar el track-record' });
+  }
+});
+
 module.exports = router;
 module.exports.extractSignalFromResponse = extractSignalFromResponse;
 module.exports.autoSaveSignal = autoSaveSignal;

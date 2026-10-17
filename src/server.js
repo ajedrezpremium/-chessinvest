@@ -141,6 +141,10 @@ app.get('/privacidad', (_req, res) => {
   res.sendFile(path.resolve(__dirname, 'public', 'privacidad.html'));
 });
 
+app.get('/track-record', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'public', 'trackrecord.html'));
+});
+
 app.get('/reset-password', (_req, res) => {
   res.send(`
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Recuperar Contraseña — CHESS INVEST</title>
