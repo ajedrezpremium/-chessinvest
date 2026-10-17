@@ -1,0 +1,38 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: node --check en todo el backend
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            node --check "$f" || fail=1
+          done < <(git ls-files 'src/**/*.js' 'scripts/**/*.js')
+          exit $fail
+  test:
+    runs-on: ubuntu-latest
+    env:
+      HAS_SUPABASE: ${{ secrets.SUPABASE_PROJECT_URL != '' && secrets.SUPABASE_SERVICE_ROLE != '' }}
+      SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+      SUPABASE_ANON_PUBLIC: ${{ secrets.SUPABASE_ANON_PUBLIC }}
+      SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: test-v2 (11 tests E2E contra Supabase)
+        if: env.HAS_SUPABASE == 'true'
+        run: node test-v2.js
